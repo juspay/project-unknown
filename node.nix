@@ -8,5 +8,5 @@
   hostName = "idliv2-01";
   sshTarget = "nix-infra@idliv2-01.tail12b27.ts.net";
   incus.bridgeName = "incusbr0";
-  authMode = "none"; # "step-ca" | "none"
+  authMode = "step-ca"; # "step-ca" | "none"
 }
