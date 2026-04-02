@@ -23,16 +23,16 @@ write_ssh_config() {
 pu_create() {
   client_auth_init "$PU_STATE_DIR/.pending"
 
-  echo "Creating container..." >&2
+  echo "Creating instance..." >&2
   local result
   result=$(pu_ssh "create base-container")
   _pu_container=$(echo "$result" | awk '/^OK/ {print $2}')
   if [ -z "$_pu_container" ]; then
-    echo "Failed to create container" >&2
+    echo "Failed to create instance" >&2
     exit 1
   fi
 
-  echo "Waiting for container to be ready..." >&2
+  echo "Waiting for instance to be ready..." >&2
   pu_ssh "wait $_pu_container" > /dev/null
 
   if [ -d "$PU_STATE_DIR/.pending" ]; then
@@ -70,11 +70,9 @@ case "$cmd" in
 Usage: pu <command>
 
 Commands:
-  create           Create a container, print its name
-  destroy <name>   Destroy a container
-  list             List your containers
-
-After 'create', connect with: ssh -F ~/.pu-state/<name>/ssh_config <name>
+  create           Create instance, print ssh command
+  destroy <name>   Destroy an instance
+  list             List your instances
 EOF
     exit 1
     ;;

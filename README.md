@@ -1,19 +1,36 @@
-# idliv2
+# project-unknown
 
-TODO: Add a long description of what the host does; Add local in-office IP
-
-## Deploy
-
-> [!TIP]
-> To use a specific private key, **prefix** the deployment commands below with `NIX_SSHOPTS="-i <path-to-key>"`
+## Usage
 
 ```sh
-HOST_NAME=$(nix eval --raw -f node.nix hostName)
-TARGET=$(nix eval --raw -f node.nix sshTarget)
-nixos-rebuild --flake .#$HOST_NAME --build-host $TARGET --target-host $TARGET --fast --use-remote-sudo switch
+nix run github:juspay/project-unknown#pu
 ```
-> [!NOTE]
-> `--fast` is a hack to skip building `nixosConfigurations.<name>.config.system.build.nixos-rebuild`, which will fail on macOS (possibly on other non-x86_64-linux too)
->
-> In the future, we can switch to`nixos-rebuild-ng`, that will come with first-class support for remote deployments
 
+```
+Usage: pu <command>
+
+Commands:
+  create           Create instance, print ssh command
+  destroy <name>   Destroy an instance
+  list             List your instances
+```
+
+## Milestones
+
+- [x] `pu` CLI for instance management (create/destroy/list)
+- [x] Incus integration for LXC
+- [x] SSH Certificate-based authentication
+- [ ] Opencode contributing to [services-flake#563](https://github.com/juspay/services-flake/issues/563) via pu instances
+- [ ] Multiple opencode agents in kolu, running pu instances to contribute to a large internal Juspay project in parallel
+
+## Todo
+
+- VM test
+- Non-interactive auth one-liner example
+- Custom hostname
+- Rename "hypervisor" → "container and VM manager" for Incus
+- Switch disko to btrfs
+- Change Incus storage to `driver = "btrfs"` for instant CoW instance cloning
+- Consider ZFS for VM block storage if RAM available; btrfs for LXC-only
+- Add snapshot and fork commands to pu-manager (builds on btrfs)
+- Shared /nix/store (local-overlay-store)

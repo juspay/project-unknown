@@ -30,7 +30,7 @@ case "$cmd" in
     if hyp_create "$image" "$name" "$identity"; then
       echo "OK $name"
     else
-      echo "ERR failed to create container" >&2; exit 1
+      echo "ERR failed to create instance" >&2; exit 1
     fi
     ;;
   list)
@@ -43,7 +43,7 @@ case "$cmd" in
     if hyp_destroy "$name"; then
       echo "OK destroyed"
     else
-      echo "ERR failed to delete container" >&2; exit 1
+      echo "ERR failed to delete instance" >&2; exit 1
     fi
     ;;
   wait)
