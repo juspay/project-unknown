@@ -21,13 +21,14 @@ write_ssh_config() {
 }
 
 pu_create() {
-  client_auth_init "$PU_STATE_DIR/.pending"
+  client_auth_init
 
   echo "Creating instance..." >&2
   local result
   result=$(pu_ssh "create base-container")
   _pu_container=$(echo "$result" | awk '/^OK/ {print $2}')
   if [ -z "$_pu_container" ]; then
+    rm -rf "$_pu_key_dir"
     echo "Failed to create instance" >&2
     exit 1
   fi
@@ -35,11 +36,7 @@ pu_create() {
   echo "Waiting for instance to be ready..." >&2
   pu_ssh "wait $_pu_container" > /dev/null
 
-  if [ -d "$PU_STATE_DIR/.pending" ]; then
-    mv "$PU_STATE_DIR/.pending" "$PU_STATE_DIR/$_pu_container"
-  else
-    mkdir -p "$PU_STATE_DIR/$_pu_container"
-  fi
+  mv "$_pu_key_dir" "$PU_STATE_DIR/$_pu_container"
   write_ssh_config "$_pu_container"
 }
 
@@ -55,14 +52,16 @@ case "$cmd" in
   destroy)
     name="${2:-}"
     [ -z "$name" ] && { echo "Usage: pu destroy <name>" >&2; exit 1; }
-    client_auth_init "$PU_STATE_DIR/.pending"
+    client_auth_init
     pu_ssh "destroy $name"
+    rm -rf "$_pu_key_dir"
     rm -rf "${PU_STATE_DIR:?}/$name"
     ;;
 
   list)
-    client_auth_init "$PU_STATE_DIR/.pending"
+    client_auth_init
     pu_ssh "list"
+    rm -rf "$_pu_key_dir"
     ;;
 
   *)
