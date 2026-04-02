@@ -43,17 +43,7 @@ pu_create() {
   write_ssh_config "$_pu_container"
 }
 
-# Parse arguments
-forward_agent=false
-args=()
-for arg in "$@"; do
-  case "$arg" in
-    --forward-agent) forward_agent=true ;;
-    *) args+=("$arg") ;;
-  esac
-done
-
-cmd="${args[0]:-}"
+cmd="${1:-}"
 
 case "$cmd" in
   create)
@@ -63,7 +53,7 @@ case "$cmd" in
     ;;
 
   destroy)
-    name="${args[1]:-}"
+    name="${2:-}"
     [ -z "$name" ] && { echo "Usage: pu destroy <name>" >&2; exit 1; }
     client_auth_init "$PU_STATE_DIR/.pending"
     pu_ssh "destroy $name"
@@ -75,30 +65,15 @@ case "$cmd" in
     pu_ssh "list"
     ;;
 
-  "")
-    pu_create
-    echo "Connecting to $_pu_container..." >&2
-    connect_opts=(-F "$PU_STATE_DIR/$_pu_container/ssh_config")
-    if [ "$forward_agent" = true ]; then
-      connect_opts+=(-o ForwardAgent=yes)
-    fi
-    # shellcheck disable=SC2029
-    ssh "${connect_opts[@]}" "$_pu_container"
-    ;;
-
   *)
     cat >&2 <<'EOF'
-Usage: pu [command] [options]
+Usage: pu <command>
 
 Commands:
-  create             Create a container, print its name
-  destroy <name>     Destroy a container
-  list               List your containers
+  create           Create a container, print its name
+  destroy <name>   Destroy a container
+  list             List your containers
 
-Options:
-  --forward-agent    Forward SSH agent (interactive mode only)
-
-With no command, creates a container and opens an interactive shell.
 After 'create', connect with: ssh -F ~/.pu-state/<name>/ssh_config <name>
 EOF
     exit 1
