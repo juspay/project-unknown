@@ -25,12 +25,13 @@ Commands:
 
 ## Todo
 
-- VM test
-- Non-interactive auth one-liner example
-- Custom hostname
-- Rename "hypervisor" → "container and VM manager" for Incus
-- Switch disko to btrfs
-- Change Incus storage to `driver = "btrfs"` for instant CoW instance cloning
-- Consider ZFS for VM block storage if RAM available; btrfs for LXC-only
-- Add snapshot and fork commands to pu-manager (builds on btrfs)
-- Shared /nix/store (local-overlay-store)
+- [ ] VM test
+- [ ] Non-interactive auth one-liner example
+- [ ] Custom hostname
+- [ ] Rename "hypervisor" → "container and VM manager" for Incus
+- [ ] Switch disko to btrfs
+- [ ] Change Incus storage to `driver = "btrfs"` -- for instant CoW instance cloning
+  - Gemini: ZFS handles VM block storage and snapshots significantly better than Btrfs, provided you have the RAM to feed it. Choose btrfs if running only LXC. 
+- [ ] Add snapshot and fork commands to pu-manager (builds on btrfs)
+- [ ] Shared /nix/store (local-overlay-store)
+- [ ] Add a skill for LLM agents to use pu instances
