@@ -15,7 +15,8 @@ client_auth_init() {
   fi
 
   echo "Signing SSH key..." >&2
-  step ssh certificate --provisioner "$PU_PROVISIONER" --sign --force me "$key_dir/key.pub"
+  step ssh certificate --provisioner "$PU_PROVISIONER" --sign --force me "$key_dir/key.pub" \
+    ${PU_PROVISIONER_PASSWORD_FILE:+--provisioner-password-file "$PU_PROVISIONER_PASSWORD_FILE"}
 
   _pu_ssh_opts=(-i "$key_dir/key" -o "CertificateFile=$key_dir/key-cert.pub" -o IdentitiesOnly=yes)
 }
