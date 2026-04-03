@@ -26,7 +26,6 @@ Commands:
 ## Todo
 
 - [ ] VM test
-- [ ] Non-interactive auth one-liner example
 - [ ] Custom hostname
 - [ ] Rename "hypervisor" → "container and VM manager" for Incus
 - [ ] ext4 -> btrfs -- for instant snapshots
