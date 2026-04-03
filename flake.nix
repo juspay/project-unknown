@@ -64,9 +64,9 @@
             PU_HOST="${host}"
             PU_ADMIN="${self.node.admin.name}"
           '' + (if authMode == "step-ca" then ''
-            PU_CA_FINGERPRINT="22ab04602f4c98dda666a369ed555863d009a88be8b6f0288c95d7b2dbbe57da"
-            PU_CA_URL="https://${host}:8443"
-            PU_PROVISIONER="me@shivaraj-bh.in"
+            export STEP_FINGERPRINT="22ab04602f4c98dda666a369ed555863d009a88be8b6f0288c95d7b2dbbe57da"
+            export STEP_CA_URL="https://${host}:8443"
+            export STEP_PROVISIONER="me@shivaraj-bh.in"
           '' else ''
             PU_AUTH="none"
           '') + ''

@@ -4,14 +4,13 @@ client_auth_init() {
     return
   fi
 
-  if [ ! -d "$HOME/.step" ]; then
-    step ca bootstrap --ca-url "$PU_CA_URL" --fingerprint "$PU_CA_FINGERPRINT"
+  if [ ! -d "${STEPPATH:-$HOME/.step}" ]; then
+    step ca bootstrap
   fi
 
   if [ ! -f "$PU_STATE_DIR/key-cert.pub" ] || step ssh needs-renewal "$PU_STATE_DIR/key-cert.pub" --expires-in 75% 2>/dev/null; then
     echo "Signing SSH key..." >&2
-    step ssh certificate --provisioner "$PU_PROVISIONER" --force --no-agent --no-password --insecure me "$PU_STATE_DIR/key" \
-      ${PU_PROVISIONER_PASSWORD_FILE:+--provisioner-password-file "$PU_PROVISIONER_PASSWORD_FILE"}
+    step ssh certificate --force --no-agent --no-password --insecure me "$PU_STATE_DIR/key"
   fi
 
   _pu_ssh_opts=(-i "$PU_STATE_DIR/key" -o "CertificateFile=$PU_STATE_DIR/key-cert.pub" -o IdentitiesOnly=yes)
