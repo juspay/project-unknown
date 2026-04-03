@@ -4,17 +4,14 @@ mkdir -p "$PU_STATE_DIR"
 write_ssh_config() {
   local name="$1"
   local dir="$PU_STATE_DIR/$name"
+  mkdir -p "$dir"
   {
     echo "Host $name"
     echo "  User $PU_ADMIN"
-    if [ -f "$dir/key" ]; then
-      echo "  IdentityFile $dir/key"
-      echo "  CertificateFile $dir/key-cert.pub"
-      echo "  IdentitiesOnly yes"
-      echo "  ProxyCommand ssh -i $dir/key -o CertificateFile=$dir/key-cert.pub -o IdentitiesOnly=yes pu@$PU_HOST \"connect $name\""
-    else
-      echo "  ProxyCommand ssh pu@$PU_HOST \"connect $name\""
-    fi
+    echo "  IdentityFile $PU_STATE_DIR/key"
+    echo "  CertificateFile $PU_STATE_DIR/key-cert.pub"
+    echo "  IdentitiesOnly yes"
+    echo "  ProxyCommand ssh -i $PU_STATE_DIR/key -o CertificateFile=$PU_STATE_DIR/key-cert.pub -o IdentitiesOnly=yes pu@$PU_HOST \"connect $name\""
     echo "  StrictHostKeyChecking no"
     echo "  UserKnownHostsFile /dev/null"
   } > "$dir/ssh_config"
@@ -28,7 +25,6 @@ pu_create() {
   result=$(pu_ssh "create base-container")
   _pu_container=$(echo "$result" | awk '/^OK/ {print $2}')
   if [ -z "$_pu_container" ]; then
-    rm -rf "$_pu_key_dir"
     echo "Failed to create instance" >&2
     exit 1
   fi
@@ -36,7 +32,6 @@ pu_create() {
   echo "Waiting for instance to be ready..." >&2
   pu_ssh "wait $_pu_container" > /dev/null
 
-  mv "$_pu_key_dir" "$PU_STATE_DIR/$_pu_container"
   write_ssh_config "$_pu_container"
 }
 
@@ -54,14 +49,12 @@ case "$cmd" in
     [ -z "$name" ] && { echo "Usage: pu destroy <name>" >&2; exit 1; }
     client_auth_init
     pu_ssh "destroy $name"
-    rm -rf "$_pu_key_dir"
     rm -rf "${PU_STATE_DIR:?}/$name"
     ;;
 
   list)
     client_auth_init
     pu_ssh "list"
-    rm -rf "$_pu_key_dir"
     ;;
 
   *)
