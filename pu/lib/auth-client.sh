@@ -8,7 +8,7 @@ client_auth_init() {
     step ca bootstrap --ca-url "$PU_CA_URL" --fingerprint "$PU_CA_FINGERPRINT"
   fi
 
-  if [ ! -f "$PU_STATE_DIR/key-cert.pub" ] || step ssh needs-renewal "$PU_STATE_DIR/key-cert.pub" --expires-in 75%; then
+  if [ ! -f "$PU_STATE_DIR/key-cert.pub" ] || step ssh needs-renewal "$PU_STATE_DIR/key-cert.pub" --expires-in 75% 2>/dev/null; then
     echo "Signing SSH key..." >&2
     step ssh certificate --provisioner "$PU_PROVISIONER" --force --no-agent --no-password --insecure me "$PU_STATE_DIR/key" \
       ${PU_PROVISIONER_PASSWORD_FILE:+--provisioner-password-file "$PU_PROVISIONER_PASSWORD_FILE"}

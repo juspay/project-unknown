@@ -10,7 +10,7 @@ hyp_destroy() {
 
 hyp_list() {
   local owner="$1"
-  incus list --format=csv -c n -- "user.pu.owner=$owner" | tr -d ' '
+  incus list --format=csv -c n -- "user.pu.owner=$owner" 2>/dev/null | tr -d ' '
 }
 
 hyp_get_owner() {
