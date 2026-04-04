@@ -25,7 +25,7 @@ Commands:
 
 ## Todo
 
-- [ ] VM test
+- [X] VM test
 - [ ] Custom hostname
 - [ ] Rename "hypervisor" → "container and VM manager" for Incus
 - [ ] ext4 -> btrfs -- for instant snapshots
