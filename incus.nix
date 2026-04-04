@@ -1,7 +1,7 @@
 # Incus container daemon — host-side configuration
-{ node, ... }:
+{ ... }:
 let
-  inherit (node.incus) bridgeName;
+  bridgeName = "incusbr0";
 in
 {
   virtualisation.incus = {

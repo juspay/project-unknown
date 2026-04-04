@@ -76,6 +76,13 @@
         };
       in
       {
+        formatter = pkgs.nixpkgs-fmt;
+
+        checks = lib.optionalAttrs pkgs.stdenv.isLinux {
+          pu-test = pkgs.testers.runNixOSTest (import ./tests { inherit pkgs lib self; });
+          incus-storage-benchmark = pkgs.testers.runNixOSTest (import ./tests/incus-storage-benchmark.nix { inherit pkgs lib self; });
+        };
+
         apps = {
           pu = {
             type = "app";
