@@ -26,7 +26,7 @@ Commands:
 ## Todo
 
 - [X] VM test
-- [ ] Custom hostname
+- [X] Custom hostname
 - [ ] Rename "hypervisor" → "container and VM manager" for Incus
 - [ ] ext4 -> btrfs -- for instant snapshots
   - [ ] Change Incus storage to `driver = "btrfs"` -- for instant CoW instance cloning

@@ -11,6 +11,13 @@ in
     "${modulesPath}/virtualisation/lxc-container.nix"
   ] ++ lib.optional node.useHostNixStore (import ../../local-overlay-store.nix).nixosModule;
 
+  virtualisation.lxc.templates.hostname = {
+    enable = true;
+    target = "/etc/hostname";
+    template = pkgs.writeText "hostname.tpl" "{{ container.name }}";
+    when = [ "create" ];
+  };
+
   environment.etc."ssh/accept-ca-principals" = {
     source = acceptCAPrincipals;
     mode = "0755";
