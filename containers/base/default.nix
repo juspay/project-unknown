@@ -9,7 +9,7 @@ in
 {
   imports = [
     "${modulesPath}/virtualisation/lxc-container.nix"
-  ] ++ lib.optional node.sharedNixStore (import ../../local-overlay-store.nix).nixosModule;
+  ] ++ lib.optional node.useHostNixStore (import ../../local-overlay-store.nix).nixosModule;
 
   environment.etc."ssh/accept-ca-principals" = {
     source = acceptCAPrincipals;

@@ -42,7 +42,7 @@ in
               pool = "default";
               type = "disk";
             };
-          } // (lib.optionalAttrs node.sharedNixStore (import ./local-overlay-store.nix).incusPreseedDevices);
+          } // (lib.optionalAttrs node.useHostNixStore (import ./local-overlay-store.nix).incusPreseedDevices);
         }
       ];
     };

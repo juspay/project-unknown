@@ -1,8 +1,8 @@
 { pkgs, lib, self, ... }:
 let
-  # TODO: enable sharedNixStore
+  # TODO: enable useHostNixStore
   # I had to disable it because `pu create` was failing for unknown reasons
-  node = self.node // { authMode = "none"; sharedNixStore = false; };
+  node = self.node // { authMode = "none"; useHostNixStore = false; };
 
   base-container = self.nixosConfigurations.base-container;
 
