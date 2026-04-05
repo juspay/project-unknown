@@ -5,20 +5,17 @@ let
   workDir = "/var/lib/nix/overlay/work";
 in
 {
-  incusProfile = {
-    name = "local-overlay-store";
-    devices = {
-      nix-store-ro = {
-        type = "disk";
-        source = "/nix/store";
-        path = lowerStoreDir;
-        readonly = true;
-      };
-      nix-daemon-socket = {
-        type = "disk";
-        source = "/nix/var/nix/daemon-socket";
-        path = builtins.dirOf daemonSocket;
-      };
+  incusPreseedDevices = {
+    nix-store-ro = {
+      type = "disk";
+      source = "/nix/store";
+      path = lowerStoreDir;
+      readonly = true;
+    };
+    nix-daemon-socket = {
+      type = "disk";
+      source = "/nix/var/nix/daemon-socket";
+      path = builtins.dirOf daemonSocket;
     };
   };
 

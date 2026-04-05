@@ -1,6 +1,8 @@
 { pkgs, lib, self, ... }:
 let
-  node = self.node // { authMode = "none"; };
+  # TODO: enable sharedNixStore
+  # I had to disable it because `pu create` was failing for unknown reasons
+  node = self.node // { authMode = "none"; sharedNixStore = false; };
 
   base-container = self.nixosConfigurations.base-container;
 
@@ -77,8 +79,6 @@ in
     server.sleep(2)
 
     server.succeed("incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container")
-
-    # client.succeed("mkdir -p /root/.pu-state && cp /etc/ssh/test-key /root/.pu-state/key && chmod 600 /root/.pu-state/key")
 
     with subtest("create instance"):
       result = client.succeed("PU_HOST=server pu create 2>&1")
