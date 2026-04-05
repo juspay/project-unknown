@@ -3,7 +3,7 @@
 ## Usage
 
 ```sh
-nix run github:juspay/project-unknown#pu
+nix run github:juspay/project-unknown
 ```
 
 ```
