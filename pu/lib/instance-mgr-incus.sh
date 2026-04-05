@@ -15,7 +15,7 @@ inst_list() {
 
 inst_get_owner() {
   local name="$1"
-  incus config get -- "$name" user.pu.owner 2>/dev/null || true
+  incus config get -- "$name" user.pu.owner 2>/dev/null
 }
 
 inst_get_ip() {
