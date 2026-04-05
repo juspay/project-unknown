@@ -1,5 +1,5 @@
 # Incus container daemon — host-side configuration
-{ ... }:
+{ lib, node, ... }:
 let
   bridgeName = "incusbr0";
 in
@@ -44,7 +44,7 @@ in
             };
           };
         }
-      ];
+      ] ++ lib.optional node.sharedNixStore (import ./local-overlay-store.nix).incusProfile;
     };
   };
 

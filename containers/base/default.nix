@@ -1,5 +1,5 @@
 # Minimal NixOS container image for Incus
-{ modulesPath, pkgs, node, ... }:
+{ modulesPath, lib, pkgs, node, ... }:
 let
   # Accepts any certificate from the trusted CA
   acceptCAPrincipals = pkgs.writeShellScript "accept-ca-principals" ''
@@ -9,7 +9,7 @@ in
 {
   imports = [
     "${modulesPath}/virtualisation/lxc-container.nix"
-  ];
+  ] ++ lib.optional node.sharedNixStore (import ../../local-overlay-store.nix).nixosModule;
 
   environment.etc."ssh/accept-ca-principals" = {
     source = acceptCAPrincipals;
@@ -36,7 +36,7 @@ in
   security.sudo.wheelNeedsPassword = false;
 
   nix.settings = {
-    experimental-features = "nix-command flakes";
+    experimental-features = [ "nix-command" "flakes" ];
     sandbox = false;
     substituters = [
       "https://cache.nixos.asia/oss"

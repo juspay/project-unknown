@@ -78,10 +78,15 @@
       {
         formatter = pkgs.nixpkgs-fmt;
 
-        checks = lib.optionalAttrs pkgs.stdenv.isLinux {
-          pu-test = pkgs.testers.runNixOSTest (import ./tests { inherit pkgs lib self; });
-          incus-storage-benchmark = pkgs.testers.runNixOSTest (import ./tests/incus-storage-benchmark.nix { inherit pkgs lib self; });
-        };
+        checks = lib.optionalAttrs pkgs.stdenv.isLinux (
+          {
+            pu-test = pkgs.testers.runNixOSTest (import ./tests { inherit pkgs lib self; });
+            incus-storage-benchmark = pkgs.testers.runNixOSTest (import ./tests/incus-storage-benchmark.nix { inherit pkgs lib self; });
+          }
+          // lib.optionalAttrs self.node.sharedNixStore {
+            local-overlay-store = pkgs.testers.runNixOSTest (import ./tests/local-overlay-store.nix { inherit pkgs lib self; });
+          }
+        );
 
         apps = {
           pu = {
