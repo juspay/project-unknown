@@ -18,7 +18,7 @@ in
     group = "pu";
     shell = lib.getExe pkgs.bash;
     extraGroups = [ "incus-admin" ];
-  } // lib.optionalAttrs (node.authMode == "none") {
+  } // lib.optionalAttrs (!node.useSSHCA) {
     openssh.authorizedKeys.keys = admin.openssh.authorizedKeys.keys;
   };
   users.groups.pu = {};

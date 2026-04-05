@@ -7,7 +7,7 @@ write_ssh_config() {
   mkdir -p "$dir"
 
   local proxy_cmd
-  if [ "${PU_AUTH:-}" = "none" ]; then
+  if [ "${PU_USE_SSH_CA:-}" != "true" ]; then
     proxy_cmd="ssh pu@$PU_HOST \"connect $name\""
   else
     proxy_cmd="ssh -i $PU_STATE_DIR/key -o CertificateFile=$PU_STATE_DIR/key-cert.pub -o IdentitiesOnly=yes pu@$PU_HOST \"connect $name\""
@@ -16,7 +16,7 @@ write_ssh_config() {
   {
     echo "Host $name"
     echo "  User $PU_ADMIN"
-    [ "${PU_AUTH:-}" != "none" ] && {
+    [ "${PU_USE_SSH_CA:-}" = "true" ] && {
       echo "  IdentityFile $PU_STATE_DIR/key"
       echo "  CertificateFile $PU_STATE_DIR/key-cert.pub"
       echo "  IdentitiesOnly yes"

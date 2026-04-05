@@ -7,6 +7,6 @@
   };
   hostName = "idliv2-01";
   sshTarget = "nix-infra@idliv2-01.tail12b27.ts.net";
-  authMode = "step-ca"; # "step-ca" | "none"
+  useSSHCA = true;
   useHostNixStore = true;
 }

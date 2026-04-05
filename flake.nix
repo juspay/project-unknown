@@ -27,7 +27,7 @@
               ./secrets
               inputs.agenix.nixosModules.default
               disko.nixosModules.disko
-            ] ++ nixpkgs.lib.optional ((self.node.authMode or "step-ca") == "step-ca") ./step-ca.nix
+            ] ++ nixpkgs.lib.optional (self.node.useSSHCA or true) ./step-ca.nix
             ++ [
               ({ node, ... }: {
                 nix.settings = {
@@ -52,17 +52,18 @@
           };
         };
 
-        lib.mkPUClientScript = authMode:
+        lib.mkPUClientScript = useSSHCA:
           # TODO: PU_ADMIN is not an appropriate name for the env var
           ''
             PU_HOST="''${PU_HOST:-${self.node.hostName}.tail12b27.ts.net}"
             PU_ADMIN="root"
-          '' + (if authMode == "step-ca" then ''
+          '' + (if useSSHCA then ''
             export STEP_FINGERPRINT="22ab04602f4c98dda666a369ed555863d009a88be8b6f0288c95d7b2dbbe57da"
             export STEP_CA_URL="https://''${PU_HOST}:8443"
             export STEP_PROVISIONER="me@shivaraj-bh.in"
+            export PU_USE_SSH_CA=true
           '' else ''
-            PU_AUTH="none"
+            export PU_USE_SSH_CA=false
           '') + ''
             ${builtins.readFile ./pu/lib/auth-client.sh}
             ${builtins.readFile ./pu/pu-client.sh}
@@ -86,8 +87,8 @@
         packages.default = pkgs.writeShellApplication {
           name = "pu";
           runtimeInputs = with pkgs; [ openssh gawk ]
-            ++ lib.optional (self.node.authMode == "step-ca") pkgs.step-cli;
-          text = self.lib.mkPUClientScript self.node.authMode;
+            ++ lib.optional self.node.useSSHCA pkgs.step-cli;
+          text = self.lib.mkPUClientScript self.node.useSSHCA;
         };
 
 

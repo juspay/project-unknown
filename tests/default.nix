@@ -2,7 +2,7 @@
 let
   # TODO: enable useHostNixStore
   # I had to disable it because `pu create` was failing for unknown reasons
-  node = self.node // { authMode = "none"; useHostNixStore = false; };
+  node = self.node // { useSSHCA = false; useHostNixStore = false; };
 
   base-container = self.nixosConfigurations.base-container;
 
@@ -20,8 +20,8 @@ let
   pu = pkgs.writeShellApplication {
     name = "pu";
     runtimeInputs = with pkgs; [ openssh gawk ]
-      ++ lib.optional (node.authMode == "step-ca") pkgs.step-cli;
-    text = self.lib.mkPUClientScript node.authMode;
+      ++ lib.optional node.useSSHCA pkgs.step-cli;
+    text = self.lib.mkPUClientScript node.useSSHCA;
   };
 
   metadata = test-container.config.system.build.metadata;
