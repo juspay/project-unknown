@@ -13,7 +13,7 @@ let
     runtimeInputs = with pkgs; [ incus coreutils openssh socat gawk gnugrep ];
     text = ''
       ${builtins.readFile authLib}
-      ${builtins.readFile ./pu/lib/hypervisor-incus.sh}
+      ${builtins.readFile ./pu/lib/instance-mgr-incus.sh}
       ${builtins.readFile ./pu/lib/tunnel.sh}
       ${builtins.readFile ./pu/pu-manager.sh}
     '';

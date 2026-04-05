@@ -17,7 +17,7 @@ let
     chmod +x $out/bin/host-only-marker
   '';
 
-  hypervisorIncusScript = pkgs.writeShellScript "hypervisor-incus.sh" (builtins.readFile ../pu/lib/hypervisor-incus.sh);
+  instanceMgrScript = pkgs.writeShellScript "instance-mgr-incus.sh" (builtins.readFile ../pu/lib/instance-mgr-incus.sh);
 in
 {
   name = "local-overlay-store";
@@ -38,7 +38,7 @@ in
 
     server.succeed("incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container")
 
-    server.succeed("source ${hypervisorIncusScript} && hyp_create base-container test-overlay test-owner")
+    server.succeed("source ${instanceMgrScript} && inst_create base-container test-overlay test-owner")
 
     server.wait_until_succeeds("incus exec test-overlay -- ${systemPath}/bin/systemctl is-active local-overlay-store-mount")
 

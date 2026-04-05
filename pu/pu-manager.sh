@@ -10,7 +10,7 @@ gen_name() {
 require_owner() {
   local name="$1" identity="$2"
   local owner
-  owner=$(hyp_get_owner "$name")
+  owner=$(inst_get_owner "$name")
   if [ "$owner" != "$identity" ]; then
     echo "ERR not owner of $name" >&2
     exit 1
@@ -28,26 +28,26 @@ case "$cmd" in
     [ -z "$image" ] && { echo "ERR usage: create <image> [name]" >&2; exit 1; }
     name="${args[2]:-}"
     if [ -n "$name" ]; then
-      if hyp_exists "$name"; then
+      if inst_exists "$name"; then
         echo "ERR name already exists" >&2; exit 1
       fi
     else
       name="$(gen_name)"
     fi
-    if hyp_create "$image" "$name" "$identity"; then
+    if inst_create "$image" "$name" "$identity"; then
       echo "OK $name"
     else
       echo "ERR failed to create instance" >&2; exit 1
     fi
     ;;
   list)
-    hyp_list "$identity"
+    inst_list "$identity"
     ;;
   destroy)
     name="${args[1]:-}"
     [ -z "$name" ] && { echo "ERR usage: destroy <name>" >&2; exit 1; }
     require_owner "$name" "$identity"
-    if hyp_destroy "$name"; then
+    if inst_destroy "$name"; then
       echo "OK destroyed"
     else
       echo "ERR failed to delete instance" >&2; exit 1
@@ -58,9 +58,9 @@ case "$cmd" in
     [ -z "$name" ] && { echo "ERR usage: wait <name>" >&2; exit 1; }
     require_owner "$name" "$identity"
     for _ in $(seq 1 30); do
-      ip=$(hyp_get_ip "$name") || true
+      ip=$(inst_get_ip "$name") || true
       if [ -n "$ip" ] && tunnel_probe "$ip" 22; then
-        hyp_inject_secrets "$name"
+        inst_inject_secrets "$name"
         echo "OK $ip"
         exit 0
       fi
@@ -73,7 +73,7 @@ case "$cmd" in
     name="${args[1]:-}"
     [ -z "$name" ] && { echo "ERR usage: connect <name>" >&2; exit 1; }
     require_owner "$name" "$identity"
-    ip=$(hyp_get_ip "$name")
+    ip=$(inst_get_ip "$name")
     [ -z "$ip" ] && { echo "ERR no IPv4 for $name" >&2; exit 1; }
     tunnel_connect "$ip" 22
     ;;
