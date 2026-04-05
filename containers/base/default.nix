@@ -18,6 +18,8 @@ in
     when = [ "create" ];
   };
 
+  networking.hostName = ""; # To allow lxc's hostname.tpl to take over
+
   environment.etc."ssh/accept-ca-principals" = {
     source = acceptCAPrincipals;
     mode = "0755";

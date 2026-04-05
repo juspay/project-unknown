@@ -99,6 +99,7 @@ in
     with subtest("connect to instance"):
       connect_result = client.succeed(f"ssh -F /root/.pu-state/{instance_name}/ssh_config {instance_name} hostname 2>&1")
       print(f"connect result: {connect_result}")
+      assert instance_name in connect_result, f"hostname mismatch: expected {instance_name}, got {connect_result}"
 
     with subtest("destroy instance"):
       destroy_result = client.succeed(f"PU_HOST=server pu destroy {instance_name} 2>&1")
