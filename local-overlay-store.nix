@@ -22,19 +22,22 @@ in
     };
   };
 
-  nixosModule = { pkgs, node, ... }: {
+  nixosModule = { pkgs, lib, node, ... }: {
     nix.settings = {
       experimental-features = [ "local-overlay-store" ];
-      trusted-users = [ "root" node.admin.name ];
-      store = "local-overlay://?root=/&lower-store=unix%3A%2F%2F${daemonSocket}&lower-store.real%3D${lowerStoreDir}&upper-layer=${upperDir}&check-mount=false";
     };
+
+    # Set the overlay store for all Nix commands in the container.
+    # This is a single-user setup - no daemon needed, the overlay store
+    # handles the lower (host) store connection directly.
+    # Use mkForce to override the default "daemon" set by NixOS for containers.
+    environment.variables.NIX_REMOTE = lib.mkForce
+      "local-overlay://?lower-store=unix%3A%2F%2F${daemonSocket}%3Freal%3D${lowerStoreDir}&upper-layer=${upperDir}&check-mount=false";
 
     systemd.services.local-overlay-store-mount = {
       description = "OverlayFS mount for shared Nix store";
       wantedBy = [ "local-fs.target" ];
-      before = [ "nix-daemon.service" ];
       after = [ "local-fs.target" ];
-      requiredBy = [ "nix-daemon.service" ];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
@@ -54,6 +57,7 @@ in
       "d /nix/var/nix 0755 root root -"
       "d /nix/var/nix/db 0755 root root -"
       "d /nix/var/nix/profiles 0755 root root -"
+      "d /nix/var/nix/temproots 1777 root root -"
     ];
   };
 }

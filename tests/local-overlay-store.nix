@@ -44,7 +44,7 @@ in
       result = server.succeed("incus exec test-overlay -- ${hostOnlyPackage}/bin/host-only-marker")
       assert "built on host" in result, f"Host package not working: {result}"
 
-    with subtest("nix daemon recognizes host-only package"):
-      server.succeed("incus exec test-overlay -- ${nixPackage}/bin/nix-store --query --hash ${hostOnlyPackage}")
+    with subtest("nix can query host packages through overlay"):
+      server.succeed("incus exec test-overlay -- su -l -c '${nixPackage}/bin/nix-store --query --hash ${hostOnlyPackage}'")
   '';
 }

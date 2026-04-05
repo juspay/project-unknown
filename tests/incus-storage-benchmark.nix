@@ -34,6 +34,8 @@ in
       ../incus.nix
     ];
 
+    _module.args.node = self.node;
+
     virtualisation = {
       cores = 4;
       memorySize = 12288;

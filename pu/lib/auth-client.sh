@@ -1,6 +1,6 @@
 client_auth_init() {
   if [ "${PU_AUTH:-}" = "none" ]; then
-    _pu_ssh_opts=()
+    _pu_ssh_opts=(-o StrictHostKeyChecking=no)
     return
   fi
 

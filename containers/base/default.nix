@@ -23,17 +23,8 @@ in
       AuthorizedPrincipalsCommand /etc/ssh/accept-ca-principals %i
       AuthorizedPrincipalsCommandUser nobody
     '';
+    settings.PermitRootLogin = "prohibit-password";
   };
-
-  users.users."${node.admin.name}" = {
-    isNormalUser = true;
-    extraGroups = [ "wheel" ];
-    openssh.authorizedKeys = {
-      inherit (node.admin.openssh.authorizedKeys) keys;
-    };
-  };
-
-  security.sudo.wheelNeedsPassword = false;
 
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
