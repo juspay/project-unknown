@@ -1,4 +1,3 @@
-# Facilitates remote access to the server
 { lib, pkgs, node, ... }:
 let
   authEnabled = node.authMode != "none";
@@ -28,23 +27,19 @@ in
     mode = "0755";
   };
 
-  services = {
-    tailscale.enable = true;
-    openssh = {
-      enable = true;
-      extraConfig = lib.mkAfter ''
-        Match User pu
-          ${lib.optionalString authEnabled "TrustedUserCAKeys ${./pu-ca.pub}"}
-          ${lib.optionalString authEnabled "AuthorizedPrincipalsCommand /etc/ssh/accept-ca-principals %i"}
-          ${lib.optionalString authEnabled "AuthorizedPrincipalsCommandUser nobody"}
-          ${lib.optionalString authEnabled "ExposeAuthInfo yes"}
-          ForceCommand ${lib.getExe pu-manager}
-          PermitTTY no
-          AllowTcpForwarding no
-          AllowAgentForwarding no
-          X11Forwarding no
-      '';
-    };
+  services.openssh = {
+    enable = true;
+    extraConfig = lib.mkAfter ''
+      Match User pu
+        ${lib.optionalString authEnabled "TrustedUserCAKeys ${./pu-ca.pub}"}
+        ${lib.optionalString authEnabled "AuthorizedPrincipalsCommand /etc/ssh/accept-ca-principals %i"}
+        ${lib.optionalString authEnabled "AuthorizedPrincipalsCommandUser nobody"}
+        ${lib.optionalString authEnabled "ExposeAuthInfo yes"}
+        ForceCommand ${lib.getExe pu-manager}
+        PermitTTY no
+        AllowTcpForwarding no
+        AllowAgentForwarding no
+        X11Forwarding no
+    '';
   };
-
 }

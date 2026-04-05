@@ -1,5 +1,5 @@
 # Incus container daemon — host-side configuration
-{ ... }:
+{ lib, node, ... }:
 let
   bridgeName = "incusbr0";
 in
@@ -42,7 +42,7 @@ in
               pool = "default";
               type = "disk";
             };
-          };
+          } // (lib.optionalAttrs node.useHostNixStore (import ./local-overlay-store.nix).incusPreseedDevices);
         }
       ];
     };

@@ -21,7 +21,7 @@
             system = "x86_64-linux";
             modules = [
               ./hardware
-              ./remote.nix
+              ./openssh.nix
               ./users.nix
               ./incus.nix
               ./secrets
@@ -35,6 +35,7 @@
                   experimental-features = "nix-command flakes";
                   trusted-users = [ "root" node.admin.name ];
                 };
+                services.tailscale.enable = true;
               })
             ];
             specialArgs = {
@@ -50,65 +51,65 @@
             };
           };
         };
-      };
 
-      perSystem = { pkgs, lib, ... }:
-      let
-        host = "${self.node.hostName}.tail12b27.ts.net";
-        authMode = self.node.authMode or "step-ca";
-        mkPuClientScript = scriptFile: pkgs.writeShellApplication {
-          name = builtins.baseNameOf scriptFile;
-          runtimeInputs = with pkgs; [ openssh gawk ]
-            ++ lib.optional (authMode == "step-ca") pkgs.step-cli;
-          text = ''
-            PU_HOST="${host}"
-            PU_ADMIN="${self.node.admin.name}"
+        lib.mkPUClientScript = authMode:
+          # TODO: PU_ADMIN is not an appropriate name for the env var
+          ''
+            PU_HOST="''${PU_HOST:-${self.node.hostName}.tail12b27.ts.net}"
+            PU_ADMIN="root"
           '' + (if authMode == "step-ca" then ''
             export STEP_FINGERPRINT="22ab04602f4c98dda666a369ed555863d009a88be8b6f0288c95d7b2dbbe57da"
-            export STEP_CA_URL="https://${host}:8443"
+            export STEP_CA_URL="https://''${PU_HOST}:8443"
             export STEP_PROVISIONER="me@shivaraj-bh.in"
           '' else ''
             PU_AUTH="none"
           '') + ''
             ${builtins.readFile ./pu/lib/auth-client.sh}
-            ${builtins.readFile scriptFile}
+            ${builtins.readFile ./pu/pu-client.sh}
           '';
-        };
-      in
+      };
+
+      perSystem = { pkgs, lib, ... }:
       {
         formatter = pkgs.nixpkgs-fmt;
 
-        checks = lib.optionalAttrs pkgs.stdenv.isLinux {
-          pu-test = pkgs.testers.runNixOSTest (import ./tests { inherit pkgs lib self; });
-          incus-storage-benchmark = pkgs.testers.runNixOSTest (import ./tests/incus-storage-benchmark.nix { inherit pkgs lib self; });
+        checks = lib.optionalAttrs pkgs.stdenv.isLinux (
+          {
+            pu-test = pkgs.testers.runNixOSTest (import ./tests { inherit pkgs lib self; });
+            incus-storage-benchmark = pkgs.testers.runNixOSTest (import ./tests/incus-storage-benchmark.nix { inherit pkgs lib self; });
+          }
+          // lib.optionalAttrs self.node.useHostNixStore {
+            local-overlay-store = pkgs.testers.runNixOSTest (import ./tests/local-overlay-store.nix { inherit pkgs lib self; });
+          }
+        );
+
+        packages.default = pkgs.writeShellApplication {
+          name = "pu";
+          runtimeInputs = with pkgs; [ openssh gawk ]
+            ++ lib.optional (self.node.authMode == "step-ca") pkgs.step-cli;
+          text = self.lib.mkPUClientScript self.node.authMode;
         };
 
-        apps = {
-          pu = {
-            type = "app";
-            program = lib.getExe (mkPuClientScript ./pu/pu-client.sh);
-          };
-        } // lib.optionalAttrs pkgs.stdenv.isLinux {
-          incus-import-container =
-            let
-              container = self.nixosConfigurations.base-container;
-              metadata = container.config.system.build.metadata;
-              squashfs = container.config.system.build.squashfs;
-              script = pkgs.writeShellApplication {
-                name = "incus-import-container";
-                text = ''
-                  incus image delete base-container 2>/dev/null || true
-                  echo "Importing container image..."
-                  incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container
-                  echo "Done. Launch with: incus launch base-container <name>"
-                '';
-              };
-            in
-            {
-              type = "app";
-              program = lib.getExe script;
+
+        apps.incus-import-container =
+          let
+            container = self.nixosConfigurations.base-container;
+            metadata = container.config.system.build.metadata;
+            squashfs = container.config.system.build.squashfs;
+            script = pkgs.writeShellApplication {
+              name = "incus-import-container";
+              text = ''
+                incus image delete base-container 2>/dev/null || true
+                echo "Importing container image..."
+                incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container
+                echo "Done. Launch with: incus launch base-container <name>"
+              '';
             };
-        };
+          in
+          lib.optionalAttrs pkgs.stdenv.isLinux {
+            type = "app";
+            program = lib.getExe script;
+          };
       };
     };
 }

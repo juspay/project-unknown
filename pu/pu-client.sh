@@ -5,13 +5,23 @@ write_ssh_config() {
   local name="$1"
   local dir="$PU_STATE_DIR/$name"
   mkdir -p "$dir"
+
+  local proxy_cmd
+  if [ "${PU_AUTH:-}" = "none" ]; then
+    proxy_cmd="ssh pu@$PU_HOST \"connect $name\""
+  else
+    proxy_cmd="ssh -i $PU_STATE_DIR/key -o CertificateFile=$PU_STATE_DIR/key-cert.pub -o IdentitiesOnly=yes pu@$PU_HOST \"connect $name\""
+  fi
+
   {
     echo "Host $name"
     echo "  User $PU_ADMIN"
-    echo "  IdentityFile $PU_STATE_DIR/key"
-    echo "  CertificateFile $PU_STATE_DIR/key-cert.pub"
-    echo "  IdentitiesOnly yes"
-    echo "  ProxyCommand ssh -i $PU_STATE_DIR/key -o CertificateFile=$PU_STATE_DIR/key-cert.pub -o IdentitiesOnly=yes pu@$PU_HOST \"connect $name\""
+    [ "${PU_AUTH:-}" != "none" ] && {
+      echo "  IdentityFile $PU_STATE_DIR/key"
+      echo "  CertificateFile $PU_STATE_DIR/key-cert.pub"
+      echo "  IdentitiesOnly yes"
+    }
+    echo "  ProxyCommand $proxy_cmd"
     echo "  StrictHostKeyChecking no"
     echo "  UserKnownHostsFile /dev/null"
   } > "$dir/ssh_config"
