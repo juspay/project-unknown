@@ -30,3 +30,8 @@ hyp_inject_secrets() {
     incus file push --create-dirs --uid 0 --gid 0 --mode 0400 -- "$netrc" "$name/etc/nix/netrc"
   fi
 }
+
+hyp_exists() {
+  local name="$1"
+  incus info -- "$name" >/dev/null 2>&1
+}

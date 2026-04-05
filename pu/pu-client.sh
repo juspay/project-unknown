@@ -28,14 +28,26 @@ write_ssh_config() {
 }
 
 pu_create() {
+  local name=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --name) name="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
   client_auth_init
 
   echo "Creating instance..." >&2
   local result
-  result=$(pu_ssh "create base-container")
+  if [ -n "$name" ]; then
+    result=$(pu_ssh "create base-container $name")
+  else
+    result=$(pu_ssh "create base-container")
+  fi
   _pu_container=$(echo "$result" | awk '/^OK/ {print $2}')
   if [ -z "$_pu_container" ]; then
-    echo "Failed to create instance" >&2
+    echo "$result" >&2
     exit 1
   fi
 
@@ -49,7 +61,8 @@ cmd="${1:-}"
 
 case "$cmd" in
   create)
-    pu_create
+    shift
+    pu_create "$@"
     echo "$_pu_container"
     echo "Connect: ssh -F $PU_STATE_DIR/$_pu_container/ssh_config $_pu_container" >&2
     ;;
@@ -72,9 +85,9 @@ case "$cmd" in
 Usage: pu <command>
 
 Commands:
-  create           Create instance, print ssh command
-  destroy <name>   Destroy an instance
-  list             List your instances
+  create [--name <name>]  Create instance, print ssh command
+  destroy <name>          Destroy an instance
+  list                    List your instances
 EOF
     exit 1
     ;;

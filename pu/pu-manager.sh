@@ -25,8 +25,15 @@ cmd="${args[0]:-}"
 case "$cmd" in
   create)
     image="${args[1]:-}"
-    [ -z "$image" ] && { echo "ERR usage: create <image>" >&2; exit 1; }
-    name="$(gen_name)"
+    [ -z "$image" ] && { echo "ERR usage: create <image> [name]" >&2; exit 1; }
+    name="${args[2]:-}"
+    if [ -n "$name" ]; then
+      if hyp_exists "$name"; then
+        echo "ERR name already exists" >&2; exit 1
+      fi
+    else
+      name="$(gen_name)"
+    fi
     if hyp_create "$image" "$name" "$identity"; then
       echo "OK $name"
     else
@@ -71,6 +78,6 @@ case "$cmd" in
     tunnel_connect "$ip" 22
     ;;
   *)
-    echo "Commands: create <image>, list, destroy <name>, wait <name>, connect <name>" >&2
+    echo "Commands: create <image> [name], list, destroy <name>, wait <name>, connect <name>" >&2
     ;;
 esac

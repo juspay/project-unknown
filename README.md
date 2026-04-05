@@ -10,9 +10,9 @@ nix run github:juspay/project-unknown#pu
 Usage: pu <command>
 
 Commands:
-  create           Create instance, print ssh command
-  destroy <name>   Destroy an instance
-  list             List your instances
+  create [--name <name>]  Create instance, print ssh command
+  destroy <name>          Destroy an instance
+  list                    List your instances
 ```
 
 ## Milestones
