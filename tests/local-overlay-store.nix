@@ -17,7 +17,7 @@ let
     chmod +x $out/bin/host-only-marker
   '';
 
-  instanceMgrScript = pkgs.writeShellScript "instance-mgr-incus.sh" (builtins.readFile ../pu/lib/instance-mgr-incus.sh);
+  instanceMgrScript = pkgs.writeShellScript "incus.sh" (builtins.readFile ../pu/lib/incus.sh);
 in
 {
   name = "local-overlay-store";

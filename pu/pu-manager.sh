@@ -68,8 +68,9 @@ case "$cmd" in
     require_instance_access "$name" "$identity"
     for _ in $(seq 1 30); do
       ip=$(inst_get_ip "$name") || true
-      if [ -n "$ip" ] && tunnel_probe "$ip" 22; then
-        inst_inject_secrets "$name"
+      if [ -n "$ip" ] && tcp_probe "$ip" 22; then
+        netrc="/run/agenix/netrc-juspay"
+        [ -f "$netrc" ] && inst_push_file "$name" "$netrc" "/etc/nix/netrc" 0 0 0400
         echo "OK $ip"
         exit 0
       fi
@@ -84,7 +85,7 @@ case "$cmd" in
     require_instance_access "$name" "$identity"
     ip=$(inst_get_ip "$name")
     [ -z "$ip" ] && { echo "ERR no IPv4 for $name" >&2; exit 1; }
-    tunnel_connect "$ip" 22
+    tcp_connect "$ip" 22
     ;;
   *)
     echo "Commands: create <image> [name], list, destroy <name>, wait <name>, connect <name>" >&2

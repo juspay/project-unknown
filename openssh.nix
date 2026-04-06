@@ -1,8 +1,8 @@
 { lib, pkgs, node, ... }:
 let
   authLib = if node.useSSHCA
-    then ./pu/lib/auth-server-cert.sh
-    else ./pu/lib/auth-server-static.sh;
+    then ./pu/lib/identity-cert.sh
+    else ./pu/lib/identity-dev.sh;
 
   acceptCAPrincipals = pkgs.writeShellScript "accept-ca-principals" ''
     echo "$1"
@@ -13,8 +13,8 @@ let
     runtimeInputs = with pkgs; [ incus coreutils openssh socat gawk gnugrep ];
     text = ''
       ${builtins.readFile authLib}
-      ${builtins.readFile ./pu/lib/instance-mgr-incus.sh}
-      ${builtins.readFile ./pu/lib/tunnel.sh}
+      ${builtins.readFile ./pu/lib/incus.sh}
+      ${builtins.readFile ./pu/lib/tcp.sh}
       ${builtins.readFile ./pu/pu-manager.sh}
     '';
   };

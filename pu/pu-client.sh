@@ -40,21 +40,18 @@ pu_create() {
 
   echo "Creating instance..." >&2
   local result
-  if [ -n "$name" ]; then
-    result=$(pu_ssh "create base-container $name")
-  else
-    result=$(pu_ssh "create base-container")
-  fi
-  _pu_container=$(echo "$result" | awk '/^OK/ {print $2}')
-  if [ -z "$_pu_container" ]; then
+  result=$(pu_ssh "create base-container${name:+ $name}")
+  name=$(awk '/^OK/ {print $2}' <<< "$result")
+  if [ -z "$name" ]; then
     echo "$result" >&2
     exit 1
   fi
 
   echo "Waiting for instance to be ready..." >&2
-  pu_ssh "wait $_pu_container" > /dev/null
+  pu_ssh "wait $name" > /dev/null
 
-  write_ssh_config "$_pu_container"
+  write_ssh_config "$name"
+  echo "$name"
 }
 
 cmd="${1:-}"
@@ -62,9 +59,9 @@ cmd="${1:-}"
 case "$cmd" in
   create)
     shift
-    pu_create "$@"
-    echo "$_pu_container"
-    echo "Connect: ssh -F $PU_STATE_DIR/$_pu_container/ssh_config $_pu_container" >&2
+    name=$(pu_create "$@")
+    echo "$name"
+    echo "Connect: ssh -F $PU_STATE_DIR/$name/ssh_config $name" >&2
     ;;
 
   destroy)

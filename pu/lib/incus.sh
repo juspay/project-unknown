@@ -23,12 +23,9 @@ inst_get_ip() {
   incus list --format csv -c 4 -- "$name" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1
 }
 
-inst_inject_secrets() {
-  local name="$1"
-  local netrc="/run/agenix/netrc-juspay"
-  if [ -f "$netrc" ]; then
-    incus file push --create-dirs --uid 0 --gid 0 --mode 0400 -- "$netrc" "$name/etc/nix/netrc"
-  fi
+inst_push_file() {
+  local name="$1" src="$2" dest="$3" uid="$4" gid="$5" mode="$6"
+  incus file push --create-dirs --uid "$uid" --gid "$gid" --mode "$mode" -- "$src" "$name$dest"
 }
 
 inst_exists() {

@@ -65,7 +65,7 @@
           '' else ''
             export PU_USE_SSH_CA=false
           '') + ''
-            ${builtins.readFile ./pu/lib/auth-client.sh}
+            ${builtins.readFile ./pu/lib/ssh-cert.sh}
             ${builtins.readFile ./pu/pu-client.sh}
           '';
       };
