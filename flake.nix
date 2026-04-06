@@ -58,7 +58,7 @@
             PU_HOST="''${PU_HOST:-${self.node.hostName}.tail12b27.ts.net}"
             PU_ADMIN="root"
           '' + (if useSSHCA then ''
-            export STEP_FINGERPRINT="22ab04602f4c98dda666a369ed555863d009a88be8b6f0288c95d7b2dbbe57da"
+            export STEP_FINGERPRINT="a1a94de010ff8b2996b4ba4634df5f54db3761dfd92e5974631d0fdae932009b"
             export STEP_CA_URL="https://''${PU_HOST}:8443"
             export STEP_PROVISIONER="me@shivaraj-bh.in"
             export PU_USE_SSH_CA=true
