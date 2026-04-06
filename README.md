@@ -28,8 +28,8 @@ Commands:
 - [X] VM test
 - [X] Custom hostname
 - [X] Rename "hypervisor" → "container and VM manager" for Incus
-- [ ] ext4 -> btrfs -- for instant snapshots
-  - [ ] Change Incus storage to `driver = "btrfs"` -- for instant CoW instance cloning
+- [X] ext4 -> btrfs -- for instant snapshots
+  - [X] Change Incus storage to `driver = "btrfs"` -- for instant CoW instance cloning
   - Gemini: ZFS handles VM block storage and snapshots significantly better than Btrfs, provided you have the RAM to feed it. Choose btrfs if running only LXC. 
   - [ ] Add snapshot and fork commands to pu-manager
 - [X] Shared /nix/store (local-overlay-store)
