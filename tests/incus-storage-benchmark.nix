@@ -1,13 +1,13 @@
 # Incus Storage Backend Benchmark (Single-Node)
 #
 # Compares btrfs, LVM+ext4, and ZFS for container lifecycle operations.
-# Runs in QEMU VM with 4 cores, 12GB RAM, 4GB virtual disks per pool.
+# Runs in QEMU VM with 2 cores, 4GB RAM, 4GB virtual disks per pool.
 #
 # Lifecycle Operations:
-#   Create:        btrfs > ZFS (1.8x) > LVM (3.5x)
-#   Destroy:       btrfs > ZFS (2.5x) > LVM (6.5x)
-#   Snapshot:      btrfs = ZFS > LVM (4x)
-#   Snapshot copy: btrfs > ZFS (4x) > LVM (15x)
+#   Create: btrfs > zfs (1.9x) > lvm (2.3x)
+#   Destroy: btrfs > zfs (2.4x) > lvm (4.0x)
+#   Snapshot: btrfs = zfs > lvm (2.8x)
+#   Snapshot copy: btrfs > zfs (4.5x) > lvm (5.7x)
 #
 # Why btrfs wins lifecycle:
 #   CoW (copy-on-write) + B-tree: create/snapshot/delete just update metadata.
@@ -37,10 +37,9 @@ in
     _module.args.node = self.node;
 
     virtualisation = {
-      cores = 4;
-      memorySize = 12288;
-      diskSize = 20480;
-      emptyDiskImages = [ 4096 4096 4096 ];
+      cores = 2;
+      memorySize = 4096;
+      emptyDiskImages = [ 2048 2048 2048 ];
     };
 
     networking.hostId = "12345678";
