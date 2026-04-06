@@ -4,8 +4,8 @@ client_auth_init() {
     return
   fi
 
-  if [ ! -d "${STEPPATH:-$HOME/.step}" ]; then
-    step ca bootstrap
+  if ! step ca health &>/dev/null; then
+    step ca bootstrap --force
   fi
 
   if [ ! -f "$PU_STATE_DIR/key-cert.pub" ] || step ssh needs-renewal "$PU_STATE_DIR/key-cert.pub" --expires-in 75% 2>/dev/null; then
@@ -13,7 +13,8 @@ client_auth_init() {
     step ssh certificate --force --no-agent --no-password --insecure me "$PU_STATE_DIR/key"
   fi
 
-  _pu_ssh_opts=(-i "$PU_STATE_DIR/key" -o "CertificateFile=$PU_STATE_DIR/key-cert.pub" -o IdentitiesOnly=yes)
+  _pu_ssh_opts=(-i "$PU_STATE_DIR/key" -o "CertificateFile=$PU_STATE_DIR/key-cert.pub" -o IdentitiesOnly=yes \
+    -o "UserKnownHostsFile=$PU_STATE_DIR/known_hosts" -o StrictHostKeyChecking=accept-new)
 }
 
 pu_ssh() {
