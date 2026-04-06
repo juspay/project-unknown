@@ -7,7 +7,9 @@
 #      --address :8443
 #   2. Copy the ca.json from /var/lib/step-ca/config/ca.json
 #   3. Copy pu-ca.pub from /var/lib/step-ca/certs/ssh_user_ca_key.pub
-#   4. echo "<password>" > /etc/step-ca/intermediate-password  (on host) TODO: replace with secrets manager
+#   4. echo "<password>" > /var/lib/step-ca/intermediate-password  (on host) TODO: replace with secrets manager
+#   5. chmod 400 /var/lib/step-ca/intermediate-password (FIXME: maybe not required)
+#   6. In the output of (1) you will get fingerprint, replace that in STEP_FINGERPRINT value in flake.nix
 { ... }:
 {
   systemd.services.step-ca.environment.STEPPATH = "/var/lib/step-ca";

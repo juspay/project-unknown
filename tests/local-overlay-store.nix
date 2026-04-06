@@ -22,10 +22,19 @@ in
 {
   name = "local-overlay-store";
 
-  nodes.server = { pkgs, ... }: {
+  nodes.server = { pkgs, lib, ... }: {
     imports = [ ../incus.nix ];
     _module.args.node = self.node;
     virtualisation.diskSize = 2048; # default 1024 not enough for importing base-container
+
+    # This test doesn't need btrfs — override to dir to avoid needing a btrfs-formatted disk
+    virtualisation.incus.preseed.storage_pools = lib.mkForce [
+      {
+        name = "default";
+        driver = "dir";
+        config.source = "/var/lib/incus/storage-pools/default";
+      }
+    ];
 
     environment.systemPackages = [ hostOnlyPackage ];
   };

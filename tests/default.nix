@@ -40,7 +40,24 @@ in
       _module.args.node = node;
 
       virtualisation = {
-        diskSize = 2048;
+        emptyDiskImages = [ 2048 ];
+      };
+      boot.supportedFilesystems.btrfs = true;
+
+      systemd.services.incus-btrfs-setup = {
+        description = "Format and mount btrfs filesystem for incus storage pool";
+        before = [ "incus.service" ];
+        requiredBy = [ "incus.service" ];
+        path = [ pkgs.btrfs-progs pkgs.util-linux ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script = ''
+          mkfs.btrfs /dev/vdb
+          mkdir -p /var/lib/incus/storage-pools
+          mount /dev/vdb /var/lib/incus/storage-pools
+        '';
       };
 
       users.users.pu = {
