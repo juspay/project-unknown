@@ -13,22 +13,20 @@
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-darwin" ];
 
-      flake = {
-        node = import ./node.nix;
-
-        nixosConfigurations = {
-          ${self.node.hostName} = nixpkgs.lib.nixosSystem {
+      flake =
+        let
+          admin = {
+            name = "nix-infra";
+            openssh.authorizedKeys.keys = [
+              "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFN5Ov2zDIG59/DaYKjT0sMWIY15er1DZCT9SIak07vK" # shivaraj-bh
+            ];
+          };
+          mkNode = node: nixpkgs.lib.nixosSystem {
             system = "x86_64-linux";
             modules = [
-              ./hardware
-              ./openssh.nix
-              ./users.nix
-              ./incus.nix
-              ./secrets
+              ./nodes/${node.hostName}
               inputs.agenix.nixosModules.default
               disko.nixosModules.disko
-            ] ++ nixpkgs.lib.optional (self.node.useSSHCA or true) ./step-ca.nix
-            ++ [
               ({ node, ... }: {
                 nix.settings = {
                   max-jobs = "auto";
@@ -38,24 +36,40 @@
                 services.tailscale.enable = true;
               })
             ];
-            specialArgs = {
-              node = self.node;
+            specialArgs = { inherit node; };
+          };
+        in
+        {
+          nodes = {
+            "idliv2-01" = {
+              inherit admin;
+              hostName = "idliv2-01";
+              useSSHCA = true;
+              useHostNixStore = true;
+            };
+            "idliv2" = {
+              inherit admin;
+              hostName = "idliv2";
+              useSSHCA = false;
+              useHostNixStore = true;
             };
           };
 
-          base-container = nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
-            modules = [ ./containers/base ];
-            specialArgs = {
-              node = self.node;
+          nixosConfigurations = {
+            "idliv2-01"    = mkNode self.nodes."idliv2-01";
+            "idliv2"       = mkNode self.nodes."idliv2";
+            base-container = nixpkgs.lib.nixosSystem {
+              system = "x86_64-linux";
+              modules = [ ./containers/base ];
+              specialArgs = { node = self.nodes."idliv2-01"; };
             };
           };
-        };
 
-        lib.mkPUClientScript = useSSHCA:
+          lib.mkPUClientScript = useSSHCA:
+          let node = self.nodes."idliv2-01"; in
           # TODO: PU_ADMIN is not an appropriate name for the env var
           ''
-            PU_HOST="''${PU_HOST:-${self.node.hostName}.tail12b27.ts.net}"
+            PU_HOST="''${PU_HOST:-${node.hostName}.tail12b27.ts.net}"
             PU_ADMIN="root"
           '' + (if useSSHCA then ''
             export STEP_FINGERPRINT="a1a94de010ff8b2996b4ba4634df5f54db3761dfd92e5974631d0fdae932009b"
@@ -68,7 +82,7 @@
             ${builtins.readFile ./pu/lib/ssh-cert.sh}
             ${builtins.readFile ./pu/pu-client.sh}
           '';
-      };
+        };
 
       perSystem = { pkgs, lib, ... }:
       {
@@ -79,7 +93,7 @@
             pu-test = pkgs.testers.runNixOSTest (import ./tests { inherit pkgs lib self; });
             incus-storage-benchmark = pkgs.testers.runNixOSTest (import ./tests/incus-storage-benchmark.nix { inherit pkgs lib self; });
           }
-          // lib.optionalAttrs self.node.useHostNixStore {
+          // lib.optionalAttrs self.nodes."idliv2-01".useHostNixStore {
             local-overlay-store = pkgs.testers.runNixOSTest (import ./tests/local-overlay-store.nix { inherit pkgs lib self; });
           }
         );
@@ -87,8 +101,8 @@
         packages.default = pkgs.writeShellApplication {
           name = "pu";
           runtimeInputs = with pkgs; [ openssh gawk ]
-            ++ lib.optional self.node.useSSHCA pkgs.step-cli;
-          text = self.lib.mkPUClientScript self.node.useSSHCA;
+            ++ lib.optional self.nodes."idliv2-01".useSSHCA pkgs.step-cli;
+          text = self.lib.mkPUClientScript self.nodes."idliv2-01".useSSHCA;
         };
 
 

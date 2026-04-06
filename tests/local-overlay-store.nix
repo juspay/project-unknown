@@ -23,8 +23,8 @@ in
   name = "local-overlay-store";
 
   nodes.server = { pkgs, lib, ... }: {
-    imports = [ ../incus.nix ];
-    _module.args.node = self.node;
+    imports = [ ../common/incus.nix ];
+    _module.args.node = self.nodes."idliv2-01";
     virtualisation.diskSize = 2048; # default 1024 not enough for importing base-container
 
     # This test doesn't need btrfs — override to dir to avoid needing a btrfs-formatted disk

@@ -31,10 +31,10 @@ in
 
   nodes.server = { pkgs, ... }: {
     imports = [
-      ../incus.nix
+      ../common/incus.nix
     ];
 
-    _module.args.node = self.node;
+    _module.args.node = self.nodes."idliv2-01";
 
     virtualisation = {
       cores = 2;

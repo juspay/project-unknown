@@ -2,7 +2,7 @@
 let
   # TODO: enable useHostNixStore
   # I had to disable it because `pu create` was failing for unknown reasons
-  node = self.node // { useSSHCA = false; useHostNixStore = false; };
+  node = self.nodes."idliv2-01" // { useSSHCA = false; useHostNixStore = false; };
 
   base-container = self.nixosConfigurations.base-container;
 
@@ -33,8 +33,8 @@ in
   nodes = {
     server = { pkgs, ... }: {
       imports = [
-        ../incus.nix
-        ../openssh.nix
+        ../common/incus.nix
+        ../nodes/idliv2-01/openssh.nix
       ];
 
       _module.args.node = node;

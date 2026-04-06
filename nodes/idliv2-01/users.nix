@@ -1,18 +1,8 @@
-# Server users and their permissions
 { node, pkgs, lib, ... }:
 let
   inherit (node) admin;
 in
 {
-  users.users."${admin.name}" = {
-    isNormalUser = true;
-    extraGroups = [ "wheel" "incus-admin" ];
-
-    openssh.authorizedKeys = {
-      inherit (admin.openssh.authorizedKeys) keys;
-    };
-  };
-
   users.users.pu = {
     isSystemUser = true;
     group = "pu";
@@ -22,9 +12,4 @@ in
     openssh.authorizedKeys.keys = admin.openssh.authorizedKeys.keys;
   };
   users.groups.pu = {};
-
-  security = {
-    sudo.execWheelOnly = true;
-    sudo.wheelNeedsPassword = false;
-  };
 }
