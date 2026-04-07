@@ -22,6 +22,7 @@ write_ssh_config() {
       echo "  IdentitiesOnly yes"
     }
     echo "  ProxyCommand $proxy_cmd"
+    echo "  ForwardAgent yes"
     echo "  StrictHostKeyChecking no"
     echo "  UserKnownHostsFile /dev/null"
   } > "$dir/ssh_config"

@@ -31,6 +31,7 @@ in
       profiles = [
         {
           name = "default";
+          config = lib.optionalAttrs node.useHostNixStore (import ./local-overlay-store.nix).incusPreseedConfig;
           devices = {
             eth0 = {
               name = "eth0";
