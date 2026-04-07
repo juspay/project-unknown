@@ -87,7 +87,23 @@ case "$cmd" in
     [ -z "$ip" ] && { echo "ERR no IPv4 for $name" >&2; exit 1; }
     tcp_connect "$ip" 22
     ;;
+  fork)
+    source="${args[1]:-}"
+    new_name="${args[2]:-}"
+    [ -z "$source" ] && { echo "ERR usage: fork <source> [name]" >&2; exit 1; }
+    require_instance_access "$source" "$identity"
+    if [ -n "$new_name" ]; then
+      inst_exists "$new_name" && { echo "ERR name already exists" >&2; exit 1; }
+    else
+      new_name="$(gen_name)"
+    fi
+    if inst_fork "$source" "$new_name"; then
+      echo "OK $new_name"
+    else
+      echo "ERR failed to fork $source" >&2; exit 1
+    fi
+    ;;
   *)
-    echo "Commands: create <image> [name], list, destroy <name>, wait <name>, connect <name>" >&2
+    echo "Commands: create <image> [name], list, destroy <name>, wait <name>, connect <name>, fork <source> [name]" >&2
     ;;
 esac

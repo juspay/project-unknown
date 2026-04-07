@@ -27,6 +27,23 @@ write_ssh_config() {
   } > "$dir/ssh_config"
 }
 
+pu_launch() {
+  local cmd="$1" label="$2"
+  client_auth_init
+  echo "$label..." >&2
+  local result name
+  result=$(pu_ssh "$cmd")
+  name=$(awk '/^OK/ {print $2}' <<< "$result")
+  if [ -z "$name" ]; then
+    echo "$result" >&2
+    exit 1
+  fi
+  echo "Waiting for instance to be ready..." >&2
+  pu_ssh "wait $name" > /dev/null
+  write_ssh_config "$name"
+  echo "$name"
+}
+
 pu_create() {
   local name=""
   while [ $# -gt 0 ]; do
@@ -35,23 +52,19 @@ pu_create() {
       *) shift ;;
     esac
   done
+  pu_launch "create base-container${name:+ $name}" "Creating instance"
+}
 
-  client_auth_init
-
-  echo "Creating instance..." >&2
-  local result
-  result=$(pu_ssh "create base-container${name:+ $name}")
-  name=$(awk '/^OK/ {print $2}' <<< "$result")
-  if [ -z "$name" ]; then
-    echo "$result" >&2
-    exit 1
-  fi
-
-  echo "Waiting for instance to be ready..." >&2
-  pu_ssh "wait $name" > /dev/null
-
-  write_ssh_config "$name"
-  echo "$name"
+pu_fork() {
+  local source="${1:?Usage: pu fork <source> [--name <name>]}" name=""
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --name) name="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  pu_launch "fork $source${name:+ $name}" "Forking $source"
 }
 
 cmd="${1:-}"
@@ -60,6 +73,13 @@ case "$cmd" in
   create)
     shift
     name=$(pu_create "$@")
+    echo "$name"
+    echo "Connect: ssh -F $PU_STATE_DIR/$name/ssh_config $name" >&2
+    ;;
+
+  fork)
+    shift
+    name=$(pu_fork "$@")
     echo "$name"
     echo "Connect: ssh -F $PU_STATE_DIR/$name/ssh_config $name" >&2
     ;;
@@ -82,9 +102,10 @@ case "$cmd" in
 Usage: pu <command>
 
 Commands:
-  create [--name <name>]  Create instance, print ssh command
-  destroy <name>          Destroy an instance
-  list                    List your instances
+  create [--name <name>]           Create instance
+  fork <source> [--name <name>]    Fork an existing instance
+  destroy <name>                   Destroy an instance
+  list                             List your instances
 EOF
     exit 1
     ;;

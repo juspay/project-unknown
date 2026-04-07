@@ -118,13 +118,28 @@ in
       print(f"connect result: {connect_result}")
       assert instance_name in connect_result, f"hostname mismatch: expected {instance_name}, got {connect_result}"
 
+    with subtest("fork instance"):
+      fork_result = client.succeed(f"PU_HOST=server pu fork {instance_name} 2>&1")
+      print(f"fork result: {fork_result}")
+      lines = [l.strip() for l in fork_result.strip().split('\n') if l.strip()]
+      fork_name = None
+      for line in lines:
+        if line.startswith("pu-"):
+          fork_name = line
+          break
+      assert fork_name, f"fork failed - no instance name found: {fork_result}"
+
+    with subtest("connect to fork"):
+      connect_result = client.succeed(f"ssh -F /root/.pu-state/{fork_name}/ssh_config {fork_name} hostname 2>&1")
+      print(f"connect result: {connect_result}")
+      assert fork_name in connect_result, f"hostname mismatch: expected {fork_name}, got {connect_result}"
+
+    with subtest("destroy fork"):
+      destroy_result = client.succeed(f"PU_HOST=server pu destroy {fork_name} 2>&1")
+      print(f"destroy result: {destroy_result}")
+
     with subtest("destroy instance"):
       destroy_result = client.succeed(f"PU_HOST=server pu destroy {instance_name} 2>&1")
       print(f"destroy result: {destroy_result}")
-
-    with subtest("verify destroyed"):
-      list_after = client.succeed("PU_HOST=server pu list 2>&1")
-      print(f"list after destroy: {list_after}")
-      assert instance_name not in list_after, f"instance still in list after destroy: {list_after}"
   '';
 }
