@@ -9,7 +9,7 @@ in
 {
   imports = [
     "${modulesPath}/virtualisation/lxc-container.nix"
-  ] ++ lib.optional node.useHostNixStore (import ../../local-overlay-store.nix).nixosModule;
+  ] ++ lib.optional node.useHostNixStore (import ../../common/local-overlay-store.nix).nixosModule;
 
   virtualisation.lxc.templates.hostname = {
     enable = true;
@@ -28,7 +28,7 @@ in
   services.openssh = {
     enable = true;
     extraConfig = ''
-      TrustedUserCAKeys ${../../pu-ca.pub}
+      TrustedUserCAKeys ${../../nodes/idliv2-01/pu-ca.pub}
       AuthorizedPrincipalsCommand /etc/ssh/accept-ca-principals %i
       AuthorizedPrincipalsCommandUser nobody
     '';
