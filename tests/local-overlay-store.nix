@@ -56,6 +56,6 @@ in
       assert "built on host" in result, f"Host package not working: {result}"
 
     with subtest("nix can query host packages through overlay"):
-      server.succeed("incus exec test-overlay -- su -l -c '${nixPackage}/bin/nix-store --query --hash ${hostOnlyPackage}'")
+      server.succeed("incus exec test-overlay -- su -l toor -c '${nixPackage}/bin/nix-store --query --hash ${hostOnlyPackage}'")
   '';
 }
