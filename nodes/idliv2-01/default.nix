@@ -6,6 +6,5 @@
     ./users.nix
     ./openssh.nix
     ./step-ca.nix
-    ./incus.nix
   ];
 }

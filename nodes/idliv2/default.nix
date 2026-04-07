@@ -4,6 +4,5 @@
     ../../common/secrets
     ./hardware
     ./openssh.nix
-    ./incus.nix
   ];
 }
