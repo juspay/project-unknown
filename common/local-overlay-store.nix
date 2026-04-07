@@ -51,6 +51,14 @@ in
       path = [ pkgs.util-linux ];
       script = ''
         mkdir -p ${upperDir} ${workDir}
+        chown toor:wheel ${upperDir}
+
+        # Nix in single-user mode calls chmod on its state dirs, which requires
+        # ownership. Give toor ownership so both toor and root (via caps) can use nix.
+        mkdir -p /nix/var/nix/profiles/per-user
+        chown -R toor:wheel /nix/var/nix
+        chmod 1777 /nix/var/nix/temproots
+
         mount --make-private /nix/store
         mount -t overlay overlay \
           -o lowerdir=${lowerStoreDir} \
@@ -62,9 +70,10 @@ in
     };
 
     systemd.tmpfiles.rules = [
-      "d /nix/var/nix 0755 root root -"
-      "d /nix/var/nix/db 0755 root root -"
-      "d /nix/var/nix/profiles 0755 root root -"
+      "d /nix/var/nix 0755 toor wheel -"
+      "d /nix/var/nix/db 0755 toor wheel -"
+      "d /nix/var/nix/profiles 0755 toor wheel -"
+      "d /nix/var/nix/profiles/per-user 0755 toor wheel -"
       "d /nix/var/nix/temproots 1777 root root -"
     ];
   };

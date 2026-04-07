@@ -13,7 +13,7 @@ let
 
   test-container = base-container.extendModules {
     modules = [{
-      users.users.root.openssh.authorizedKeys.keyFiles = [ "${test-key}/id_ed25519.pub" ];
+      users.users.toor.openssh.authorizedKeys.keyFiles = [ "${test-key}/id_ed25519.pub" ];
     }];
   };
 

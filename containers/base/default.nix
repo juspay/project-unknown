@@ -60,6 +60,11 @@ in
     ForwardX11 no
   '';
 
+  users.users.toor = {
+    isNormalUser = true;
+    extraGroups = [ "wheel" ];
+  };
+
   environment.systemPackages = with pkgs; [
     vim
     git

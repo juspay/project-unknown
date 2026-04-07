@@ -79,7 +79,7 @@
           # TODO: PU_ADMIN is not an appropriate name for the env var
           ''
             PU_HOST="''${PU_HOST:-${node.hostName}.tail12b27.ts.net}"
-            PU_ADMIN="root"
+            PU_ADMIN="toor"
           '' + (if useSSHCA then ''
             export STEP_FINGERPRINT="a1a94de010ff8b2996b4ba4634df5f54db3761dfd92e5974631d0fdae932009b"
             export STEP_CA_URL="https://''${PU_HOST}:8443"
