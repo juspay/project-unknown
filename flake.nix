@@ -27,11 +27,20 @@
               ./nodes/${node.hostName}
               inputs.agenix.nixosModules.default
               disko.nixosModules.disko
-              ({ node, ... }: {
+              ({ node, config, ... }: {
                 nix.settings = {
                   max-jobs = "auto";
                   experimental-features = "nix-command flakes";
                   trusted-users = [ "root" node.admin.name ];
+                  substituters = [
+                    "https://cache.nixos.asia/oss"
+                    "https://cache.nixos.asia/juspay"
+                  ];
+                  trusted-public-keys = [
+                    "juspay:5aHaNForWL03wKOGhUn/al4BZd3HqZDWZ3hrVTcf6Fg="
+                    "oss:KO872wNJkCDgmGN3xy9dT89WAhvv13EiKncTtHDItVU="
+                  ];
+                  netrc-file = config.age.secrets."netrc-juspay".path;
                 };
                 services.tailscale.enable = true;
               })
