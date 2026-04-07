@@ -15,7 +15,7 @@ in
     enable = true;
     target = "/etc/hostname";
     template = pkgs.writeText "hostname.tpl" "{{ container.name }}";
-    when = [ "create" ];
+    when = [ "create" "copy" ];
   };
 
   networking.hostName = ""; # To allow lxc's hostname.tpl to take over

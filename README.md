@@ -10,9 +10,10 @@ nix run github:juspay/project-unknown
 Usage: pu <command>
 
 Commands:
-  create [--name <name>]  Create instance, print ssh command
-  destroy <name>          Destroy an instance
-  list                    List your instances
+  create [--name <name>]           Create instance, print ssh command
+  fork <source> [--name <name>]    Fork an existing instance, print ssh command
+  destroy <name>                   Destroy an instance
+  list                             List your instances
 ```
 
 ## Milestones
@@ -31,6 +32,6 @@ Commands:
 - [X] ext4 -> btrfs -- for instant snapshots
   - [X] Change Incus storage to `driver = "btrfs"` -- for instant CoW instance cloning
   - Gemini: ZFS handles VM block storage and snapshots significantly better than Btrfs, provided you have the RAM to feed it. Choose btrfs if running only LXC. 
-  - [ ] Add snapshot and fork commands to pu-manager
+  - [X] Add snapshot and fork commands to pu-manager
 - [X] Shared /nix/store (local-overlay-store)
 - [ ] Add a skill for LLM agents to use pu instances

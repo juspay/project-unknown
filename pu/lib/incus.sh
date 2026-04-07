@@ -32,3 +32,17 @@ inst_exists() {
   local name="$1"
   incus info -- "$name" >/dev/null 2>&1
 }
+
+inst_fork() {
+  local source="$1" new_name="$2"
+  local snapshot owner
+  snapshot="fork-$(head -c3 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+  owner=$(incus config get -- "$source" user.pu.owner 2>/dev/null)
+  incus snapshot create -- "$source" "$snapshot" </dev/null 2>&1 || return 1
+  incus copy --allow-inconsistent -e -c "user.pu.owner=$owner" -- "$source/$snapshot" "$new_name" </dev/null 2>&1
+  local ok=$?
+  incus snapshot delete -- "$source" "$snapshot" </dev/null 2>&1
+  [ $ok -ne 0 ] && return 1
+  incus start -- "$new_name" </dev/null 2>&1 || return 1
+  return 0
+}
