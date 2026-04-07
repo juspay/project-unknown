@@ -31,6 +31,6 @@ Commands:
 - [X] ext4 -> btrfs -- for instant snapshots
   - [X] Change Incus storage to `driver = "btrfs"` -- for instant CoW instance cloning
   - Gemini: ZFS handles VM block storage and snapshots significantly better than Btrfs, provided you have the RAM to feed it. Choose btrfs if running only LXC. 
-  - [ ] Add snapshot and fork commands to pu-manager
+  - [X] Add snapshot and fork commands to pu-manager
 - [X] Shared /nix/store (local-overlay-store)
 - [ ] Add a skill for LLM agents to use pu instances
