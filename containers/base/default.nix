@@ -49,6 +49,17 @@ in
     netrc-file = "/etc/nix/netrc";
   };
 
+  # When using the host Nix store, UID remapping makes store files appear as
+  # nobody:nogroup. OpenSSH refuses to load config files not owned by the
+  # running user, so the default Include of the systemd ssh proxy config
+  # (which lives in /nix/store) breaks all outbound SSH as root.
+  environment.etc."ssh/ssh_config".text = lib.mkForce ''
+    Host *
+    GlobalKnownHostsFile /etc/ssh/ssh_known_hosts
+    StrictHostKeyChecking accept-new
+    ForwardX11 no
+  '';
+
   environment.systemPackages = with pkgs; [
     vim
     git

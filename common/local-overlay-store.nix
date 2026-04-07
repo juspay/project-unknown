@@ -5,6 +5,15 @@ let
   workDir = "/var/lib/nix/overlay/work";
 in
 {
+  # Overlay mounts inside unprivileged containers default to
+  # redirect_dir=nofollow, which makes directory rename() return EXDEV.
+  # Intercepting the mount syscall lets the host perform the mount with
+  # full privileges so redirect_dir=on is honoured.
+  incusPreseedConfig = {
+    "security.syscalls.intercept.mount" = "true";
+    "security.syscalls.intercept.mount.allowed" = "overlay";
+  };
+
   incusPreseedDevices = {
     nix-store-ro = {
       type = "disk";
@@ -42,10 +51,12 @@ in
       path = [ pkgs.util-linux ];
       script = ''
         mkdir -p ${upperDir} ${workDir}
+        mount --make-private /nix/store
         mount -t overlay overlay \
           -o lowerdir=${lowerStoreDir} \
           -o upperdir=${upperDir} \
           -o workdir=${workDir} \
+          -o redirect_dir=on \
           /nix/store
       '';
     };
