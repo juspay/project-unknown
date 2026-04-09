@@ -72,6 +72,10 @@
               modules = [ ./containers/base ];
               specialArgs = { node = self.nodes."idliv2-01"; };
             };
+            base-vm = nixpkgs.lib.nixosSystem {
+              system = "x86_64-linux";
+              modules = [ ./containers/base-vm ];
+            };
           };
 
           lib.mkPUClientScript = useSSHCA:
@@ -101,6 +105,7 @@
           {
             pu-test = pkgs.testers.runNixOSTest (import ./tests { inherit pkgs lib self; });
             incus-storage-benchmark = pkgs.testers.runNixOSTest (import ./tests/incus-storage-benchmark.nix { inherit pkgs lib self; });
+            kubevirt-vs-incus-benchmark = pkgs.testers.runNixOSTest (import ./tests/kubevirt-vs-incus-benchmark.nix { inherit pkgs lib self; });
           }
           // lib.optionalAttrs self.nodes."idliv2-01".useHostNixStore {
             local-overlay-store = pkgs.testers.runNixOSTest (import ./tests/local-overlay-store.nix { inherit pkgs lib self; });
