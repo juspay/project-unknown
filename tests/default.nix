@@ -1,17 +1,26 @@
 { pkgs, lib, self, ... }:
 let
-  # TODO: enable useHostNixStore
-  # I had to disable it because `pu create` was failing for unknown reasons
-  node = self.nodes."idliv2-01" // { useSSHCA = false; useHostNixStore = false; };
+  testNode = self.nodes."idliv2-01" // {
+    useSSHCA = false;
+    useHostNixStore = false;
+  };
 
-  base-container = self.nixosConfigurations.base-container;
+  bootstrapNode = testNode // {
+    hostName = "server1";
+    incus.role = "bootstrap";
+  };
+
+  memberNode = name: testNode // {
+    hostName = name;
+    incus.role = "member";
+  };
 
   test-key = pkgs.runCommand "test-ssh-key" { buildInputs = [ pkgs.openssh ]; } ''
     mkdir -p $out
     ssh-keygen -t ed25519 -f $out/id_ed25519 -N ""
   '';
 
-  test-container = base-container.extendModules {
+  test-container = self.nixosConfigurations.base-container.extendModules {
     modules = [{
       users.users.toor.openssh.authorizedKeys.keyFiles = [ "${test-key}/id_ed25519.pub" ];
     }];
@@ -19,60 +28,74 @@ let
 
   pu = pkgs.writeShellApplication {
     name = "pu";
-    runtimeInputs = with pkgs; [ openssh gawk ]
-      ++ lib.optional node.useSSHCA pkgs.step-cli;
-    text = self.lib.mkPUClientScript node.useSSHCA;
+    runtimeInputs = with pkgs; [ openssh gawk ];
+    text = self.lib.mkPUClientScript (testNode.useSSHCA or false);
   };
 
   metadata = test-container.config.system.build.metadata;
   squashfs = test-container.config.system.build.squashfs;
-in
-{
-  name = "e2e-no-auth";
 
-  nodes = {
-    server = { pkgs, ... }: {
-      imports = [
-        ../common/incus.nix
-        ../nodes/idliv2-01/openssh.nix
-      ];
+  mkIncusServer = nodeConfig: { pkgs, lib, ... }: {
+    imports = [
+      ../common/incus.nix
+      ../nodes/idliv2-01/openssh.nix
+    ];
 
-      _module.args.node = node;
+    _module.args.node = nodeConfig;
 
-      virtualisation = {
-        emptyDiskImages = [ 2048 ];
+    virtualisation.incus.preseed.storage_pools = lib.mkIf (nodeConfig.incus.role or "standalone" != "member") (lib.mkForce [
+      {
+        name = "default";
+        driver = "btrfs";
+        config.source = "/var/lib/incus/storage-pools";
+      }
+    ]);
+
+    networking.firewall.allowedTCPPorts = [ 8443 ];
+
+    virtualisation.vlans = [ 1 ];
+    virtualisation.emptyDiskImages = [ 2048 ];
+    boot.supportedFilesystems.btrfs = true;
+
+    systemd.services.incus-btrfs-setup = {
+      description = "Format and mount btrfs filesystem for incus storage pool";
+      before = [ "incus.service" ];
+      requiredBy = [ "incus.service" ];
+      path = [ pkgs.btrfs-progs pkgs.util-linux ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
       };
-      boot.supportedFilesystems.btrfs = true;
-
-      systemd.services.incus-btrfs-setup = {
-        description = "Format and mount btrfs filesystem for incus storage pool";
-        before = [ "incus.service" ];
-        requiredBy = [ "incus.service" ];
-        path = [ pkgs.btrfs-progs pkgs.util-linux ];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-        };
-        script = ''
-          mkfs.btrfs /dev/vdb
-          mkdir -p /var/lib/incus/storage-pools
-          mount /dev/vdb /var/lib/incus/storage-pools
-        '';
-      };
-
-      users.users.pu = {
-        isSystemUser = true;
-        group = "pu";
-        shell = lib.getExe pkgs.bash;
-        extraGroups = [ "incus-admin" ];
-        openssh.authorizedKeys.keyFiles = [ "${test-key}/id_ed25519.pub" ];
-      };
-      users.groups.pu = {};
-
-      system.stateVersion = "25.11";
+      script = ''
+        mkfs.btrfs /dev/vdb
+        mkdir -p /var/lib/incus/storage-pools
+        mount /dev/vdb /var/lib/incus/storage-pools
+      '';
     };
 
+    users.users.pu = {
+      isSystemUser = true;
+      group = "pu";
+      shell = lib.getExe pkgs.bash;
+      extraGroups = [ "incus-admin" ];
+      openssh.authorizedKeys.keyFiles = [ "${test-key}/id_ed25519.pub" ];
+    };
+    users.groups.pu = {};
+
+    system.stateVersion = "25.11";
+  };
+in
+{
+  name = "e2e-cluster";
+
+  nodes = {
+    server1 = mkIncusServer bootstrapNode;
+    server2 = mkIncusServer (memberNode "server2");
+    server3 = mkIncusServer (memberNode "server3");
+
     client = { pkgs, ... }: {
+      virtualisation.vlans = [ 1 ];
+
       environment.systemPackages = [ pu pkgs.openssh pkgs.iputils ];
 
       system.activationScripts.setupTestSSHKey = {
@@ -90,56 +113,151 @@ in
   };
 
   testScript = ''
-    start_all()
-    server.wait_for_unit("incus.service")
-    server.wait_for_unit("sshd.service")
-    server.sleep(2)
+    import json
+    import re
 
-    server.succeed("incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container")
+    def get_instance_location(server, instance_name):
+        result = server.succeed(f"incus list --format=json {instance_name}")
+        data = json.loads(result)
+        if data:
+            return data[0].get("location", "unknown")
+        return "not_found"
+
+    def get_vlan_ip(server):
+        result = server.succeed("ip -4 addr show eth1 | grep -oP 'inet \\K[0-9.]+'")
+        return result.strip()
+
+    def extract_instance_name(output, context):
+        match = re.search(r'\bOK\s+(pu-[a-f0-9]+)', output)
+        if match:
+            return match.group(1)
+        for line in output.replace('\r', '\n').splitlines():
+            line = line.strip()
+            if re.match(r'^pu-[a-f0-9]+$', line):
+                return line
+        raise AssertionError(f"{context}: no instance name in output:\n{output}")
+
+    start_all()
+
+    cluster_members = ["server1", "server2", "server3"]
+
+    for srv in [server1, server2, server3]:
+        srv.wait_for_unit("incus.service")
+        srv.wait_for_unit("sshd.service")
+        srv.wait_until_succeeds("incus list")
+
+    server1.wait_for_unit("incus-preseed.service")
+
+    with subtest("verify network connectivity via VLAN"):
+        server1.succeed("ping -c 1 server2")
+        server1.succeed("ping -c 1 server3")
+        server2.succeed("ping -c 1 server1")
+        server3.succeed("ping -c 1 server1")
+
+    server1_ip = get_vlan_ip(server1)
+    server2_ip = get_vlan_ip(server2)
+    server3_ip = get_vlan_ip(server3)
+    print(f"server1 IP (eth1): {server1_ip}")
+    print(f"server2 IP (eth1): {server2_ip}")
+    print(f"server3 IP (eth1): {server3_ip}")
+
+    with subtest("bootstrap cluster on server1"):
+        server1.succeed(f"incus config set core.https_address {server1_ip}:8443")
+        server1.succeed("incus cluster enable server1")
+        server1.succeed("incus cluster list")
+
+    with subtest("generate join tokens"):
+        token2 = server1.succeed("incus cluster add --quiet server2").strip()
+        token3 = server1.succeed("incus cluster add --quiet server3").strip()
+
+    with subtest("join server2 to cluster"):
+        server2.succeed("\n".join([
+            "incus admin init --preseed <<EOF",
+            "cluster:",
+            "  enabled: true",
+            "  server_name: server2",
+            f"  server_address: {server2_ip}:8443",
+            f"  cluster_address: {server1_ip}:8443",
+            f"  cluster_token: {token2}",
+            "  member_config:",
+            "    - entity: storage-pool",
+            "      name: default",
+            "      key: source",
+            "      value: /var/lib/incus/storage-pools",
+            "EOF",
+        ]))
+
+    with subtest("join server3 to cluster"):
+        server3.succeed("\n".join([
+            "incus admin init --preseed <<EOF",
+            "cluster:",
+            "  enabled: true",
+            "  server_name: server3",
+            f"  server_address: {server3_ip}:8443",
+            f"  cluster_address: {server1_ip}:8443",
+            f"  cluster_token: {token3}",
+            "  member_config:",
+            "    - entity: storage-pool",
+            "      name: default",
+            "      key: source",
+            "      value: /var/lib/incus/storage-pools",
+            "EOF",
+        ]))
+
+    with subtest("verify cluster formation"):
+        cluster_list = server1.succeed("incus cluster list --format=json")
+        members = json.loads(cluster_list)
+        member_names = {m["server_name"] for m in members}
+        assert member_names == {"server1", "server2", "server3"}, f"Expected 3 cluster members, got: {member_names}"
+        for m in members:
+            assert m["status"] == "Online", f"Member {m['server_name']} is not online: {m['status']}"
+
+    with subtest("import container image on server1"):
+        server1.succeed("incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container")
+        server1.wait_until_succeeds("incus image list | grep base-container")
+
+    with subtest("verify image available cluster-wide"):
+        server2.succeed("incus image list --format=json | grep base-container")
+        server3.succeed("incus image list --format=json | grep base-container")
 
     with subtest("create instance"):
-      result = client.succeed("PU_HOST=server pu create 2>&1")
-      print(f"create result: {result}")
-      lines = [l.strip() for l in result.strip().split('\n') if l.strip()]
-      instance_name = None
-      for line in lines:
-        if line.startswith("pu-"):
-          instance_name = line
-          break
-      assert instance_name, f"create failed - no instance name found: {result}"
+        result = client.succeed("PU_HOST=server1 pu create 2>&1")
+        print(f"create result: {result}")
+        instance_name = extract_instance_name(result, "create")
+
+    with subtest("check instance location"):
+        location = get_instance_location(server1, instance_name)
+        print(f"instance {instance_name} is on {location}")
 
     with subtest("list instances"):
-      list_result = client.succeed("PU_HOST=server pu list 2>&1")
-      print(f"list result: {list_result}")
-      assert instance_name in list_result, f"instance not in list: {list_result}"
+        list_result = client.succeed("PU_HOST=server1 pu list 2>&1")
+        print(f"list result: {list_result}")
+        assert instance_name in list_result, f"instance not in list: {list_result}"
 
     with subtest("connect to instance"):
-      connect_result = client.succeed(f"ssh -F /root/.pu-state/{instance_name}/ssh_config {instance_name} hostname 2>&1")
-      print(f"connect result: {connect_result}")
-      assert instance_name in connect_result, f"hostname mismatch: expected {instance_name}, got {connect_result}"
+        connect_result = client.succeed(f"ssh -F /root/.pu-state/{instance_name}/ssh_config {instance_name} hostname 2>&1")
+        print(f"connect result: {connect_result}")
+        assert instance_name in connect_result, f"hostname mismatch: expected {instance_name}, got: {connect_result}"
 
-    with subtest("fork instance"):
-      fork_result = client.succeed(f"PU_HOST=server pu fork {instance_name} 2>&1")
-      print(f"fork result: {fork_result}")
-      lines = [l.strip() for l in fork_result.strip().split('\n') if l.strip()]
-      fork_name = None
-      for line in lines:
-        if line.startswith("pu-"):
-          fork_name = line
-          break
-      assert fork_name, f"fork failed - no instance name found: {fork_result}"
+    with subtest("fork instance (should land on different node)"):
+        _, fork_result = client.execute(f"PU_HOST=server1 pu fork {instance_name} 2>&1")
+        print(f"fork output: {repr(fork_result)}")
+        fork_name = extract_instance_name(fork_result, "fork")
 
-    with subtest("connect to fork"):
-      connect_result = client.succeed(f"ssh -F /root/.pu-state/{fork_name}/ssh_config {fork_name} hostname 2>&1")
-      print(f"connect result: {connect_result}")
-      assert fork_name in connect_result, f"hostname mismatch: expected {fork_name}, got {connect_result}"
+    with subtest("verify cross-node fork"):
+        instance_location = get_instance_location(server1, instance_name)
+        fork_location = get_instance_location(server1, fork_name)
+        print(f"instance {instance_name} on {instance_location}")
+        print(f"fork {fork_name} on {fork_location}")
+        assert instance_location != fork_location, \
+            f"Fork did not cross nodes: instance on {instance_location}, fork on {fork_location}"
 
     with subtest("destroy fork"):
-      destroy_result = client.succeed(f"PU_HOST=server pu destroy {fork_name} 2>&1")
-      print(f"destroy result: {destroy_result}")
+        destroy_status, destroy_result = client.execute(f"PU_HOST=server1 pu destroy {fork_name} 2>&1")
+        print(f"destroy fork status: {destroy_status}, output: {destroy_result}")
 
     with subtest("destroy instance"):
-      destroy_result = client.succeed(f"PU_HOST=server pu destroy {instance_name} 2>&1")
-      print(f"destroy result: {destroy_result}")
+        destroy_result = client.succeed(f"PU_HOST=server1 pu destroy {instance_name} 2>&1")
+        print(f"destroy result: {destroy_result}")
   '';
 }

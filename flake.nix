@@ -55,12 +55,14 @@
               hostName = "idliv2-01";
               useSSHCA = true;
               useHostNixStore = true;
+              incus.role = "standalone";
             };
             "idliv2" = {
               inherit admin;
               hostName = "idliv2";
               useSSHCA = false;
               useHostNixStore = true;
+              incus.role = "standalone";
             };
           };
 
