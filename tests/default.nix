@@ -123,9 +123,20 @@ in
             return data[0].get("location", "unknown")
         return "not_found"
 
-    def get_vlan_ip(server):
-        result = server.succeed("ip -4 addr show eth1 | grep -oP 'inet \\K[0-9.]+'")
-        return result.strip()
+    def join_cluster(server, hostname, token):
+        # server_name and cluster_address are omitted: fillClusterConfig decodes
+        # both from the join token itself (token encodes member name and cluster addresses).
+        server.succeed(f"""incus admin init --preseed <<'EOF'
+cluster:
+  enabled: true
+  server_address: {hostname}:8443
+  cluster_token: {token}
+  member_config:
+    - entity: storage-pool
+      name: default
+      key: source
+      value: /var/lib/incus/storage-pools
+EOF""")
 
     def extract_instance_name(output, context):
         match = re.search(r'\bOK\s+(pu-[a-f0-9]+)', output)
@@ -154,15 +165,8 @@ in
         server2.succeed("ping -c 1 server1")
         server3.succeed("ping -c 1 server1")
 
-    server1_ip = get_vlan_ip(server1)
-    server2_ip = get_vlan_ip(server2)
-    server3_ip = get_vlan_ip(server3)
-    print(f"server1 IP (eth1): {server1_ip}")
-    print(f"server2 IP (eth1): {server2_ip}")
-    print(f"server3 IP (eth1): {server3_ip}")
-
     with subtest("bootstrap cluster on server1"):
-        server1.succeed(f"incus config set core.https_address {server1_ip}:8443")
+        server1.succeed("incus config set core.https_address server1:8443")
         server1.succeed("incus cluster enable server1")
         server1.succeed("incus cluster list")
 
@@ -171,38 +175,10 @@ in
         token3 = server1.succeed("incus cluster add --quiet server3").strip()
 
     with subtest("join server2 to cluster"):
-        server2.succeed("\n".join([
-            "incus admin init --preseed <<EOF",
-            "cluster:",
-            "  enabled: true",
-            "  server_name: server2",
-            f"  server_address: {server2_ip}:8443",
-            f"  cluster_address: {server1_ip}:8443",
-            f"  cluster_token: {token2}",
-            "  member_config:",
-            "    - entity: storage-pool",
-            "      name: default",
-            "      key: source",
-            "      value: /var/lib/incus/storage-pools",
-            "EOF",
-        ]))
+        join_cluster(server2, "server2", token2)
 
     with subtest("join server3 to cluster"):
-        server3.succeed("\n".join([
-            "incus admin init --preseed <<EOF",
-            "cluster:",
-            "  enabled: true",
-            "  server_name: server3",
-            f"  server_address: {server3_ip}:8443",
-            f"  cluster_address: {server1_ip}:8443",
-            f"  cluster_token: {token3}",
-            "  member_config:",
-            "    - entity: storage-pool",
-            "      name: default",
-            "      key: source",
-            "      value: /var/lib/incus/storage-pools",
-            "EOF",
-        ]))
+        join_cluster(server3, "server3", token3)
 
     with subtest("verify cluster formation"):
         cluster_list = server1.succeed("incus cluster list --format=json")
