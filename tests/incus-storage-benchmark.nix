@@ -1,13 +1,14 @@
 # Incus Storage Backend Benchmark (Single-Node)
 #
 # Compares btrfs, LVM+ext4, and ZFS for container lifecycle operations.
-# Runs in QEMU VM with 2 cores, 4GB RAM, 4GB virtual disks per pool.
+# Runs in QEMU VM with 2 cores, 4GB RAM, 2GB virtual disk per pool.
 #
 # Lifecycle Operations:
-#   Create: btrfs > zfs (1.9x) > lvm (2.3x)
-#   Destroy: btrfs > zfs (2.4x) > lvm (4.0x)
-#   Snapshot: btrfs = zfs > lvm (2.8x)
-#   Snapshot copy: btrfs > zfs (4.5x) > lvm (5.7x)
+#   Create (init, no start): btrfs > zfs (4.9x) > lvm (10.2x)
+#   Delete: btrfs > zfs (3.1x) > lvm (6.1x)
+#   Start/stop: btrfs > zfs (1.1x) > lvm (1.2x)  # mostly mount/unmount overhead
+#   Snapshot: btrfs > zfs (1.3x) > lvm (4.2x)
+#   Snapshot copy (same-pool, CoW-favorable): btrfs > zfs (3.8x) > lvm (6.2x)
 #
 # Why btrfs wins lifecycle:
 #   CoW (copy-on-write) + B-tree: create/snapshot/delete just update metadata.
@@ -34,6 +35,8 @@ in
       ../common/incus.nix
     ];
 
+    virtualisation.incus.preseed.storage_pools = lib.mkForce [ ]; # We setup the pools in the testScript below
+
     _module.args.node = self.nodes."idliv2-01";
 
     virtualisation = {
@@ -55,8 +58,7 @@ in
     };
 
     environment.systemPackages = with pkgs; [
-      coreutils
-      parted
+      hyperfine
       zfs
     ];
 
@@ -64,157 +66,85 @@ in
   };
 
   testScript = ''
-    import time
-    import statistics
     import json
 
-    def time_command(cmd):
-        start = time.time()
-        server.succeed(cmd)
-        return time.time() - start
-
     server.wait_for_unit("incus.service")
-    server.sleep(2)
+    server.wait_for_unit("incus-preseed.service")
 
     server.succeed("incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container")
 
-    with subtest("setup btrfs storage pool"):
-        server.succeed("incus storage create btrfs-pool btrfs source=/dev/vdb")
+    with subtest("setup storage pools"):
+        server.succeed("incus storage create btrfs btrfs source=/dev/vdb")
+        server.succeed("incus storage create lvm lvm source=/dev/vdc")
+        server.succeed("zpool create zfs /dev/vdd")
+        server.succeed("incus storage create zfs zfs source=zfs")
 
-    with subtest("setup lvm storage pool"):
-        server.succeed("incus storage create lvm-pool lvm source=/dev/vdc")
+    with subtest("benchmark create"):
+        server.succeed(
+            "hyperfine --runs ${toString iterations} --export-json bench-create.json"
+            " --parameter-list pool btrfs,lvm,zfs"
+            " --setup 'incus init base-container c -s {pool}'"
+            " --prepare 'incus delete c'"
+            " --cleanup 'incus delete c'"
+            " 'incus init base-container c -s {pool}'"
+        )
 
-    with subtest("setup zfs storage pool"):
-        server.succeed("zpool create zfs-pool /dev/vdd")
-        server.succeed("incus storage create zfs-pool zfs source=zfs-pool")
+    with subtest("benchmark delete"):
+        server.succeed(
+            "hyperfine --runs ${toString iterations} --export-json bench-delete.json"
+            " --parameter-list pool btrfs,lvm,zfs"
+            " --prepare 'incus launch base-container d -s {pool}; incus stop d --force'"
+            " 'incus delete d --force'"
+        )
 
-    results: dict[str, dict[str, list[float]]] = {
-        "btrfs": {
-            "create": [],
-            "start": [],
-            "stop": [],
-            "destroy": [],
-            "snapshot_create": [],
-            "snapshot_copy": [],
-        },
-        "lvm": {
-            "create": [],
-            "start": [],
-            "stop": [],
-            "destroy": [],
-            "snapshot_create": [],
-            "snapshot_copy": [],
-        },
-        "zfs": {
-            "create": [],
-            "start": [],
-            "stop": [],
-            "destroy": [],
-            "snapshot_create": [],
-            "snapshot_copy": [],
-        },
-    }
+    with subtest("benchmark start-stop"):
+        server.succeed(
+            "hyperfine --runs ${toString iterations} --export-json bench-start-stop.json"
+            " --parameter-list pool btrfs,lvm,zfs"
+            " --setup 'incus launch base-container pwr-test -s {pool}; incus stop pwr-test --force'"
+            " --cleanup 'incus delete pwr-test --force'"
+            " 'incus start pwr-test; incus stop pwr-test --force'"
+        )
 
-    for pool_name, result_key in [("btrfs-pool", "btrfs"), ("lvm-pool", "lvm"), ("zfs-pool", "zfs")]:
-        print("\n" + "="*60)
-        print(f"Benchmarking {pool_name} ({result_key})")
-        print("="*60)
+    with subtest("benchmark snapshot"):
+        server.succeed(
+            "hyperfine --runs ${toString iterations} --export-json bench-snapshot.json"
+            " --parameter-list pool btrfs,lvm,zfs"
+            " --setup 'incus launch base-container s -s {pool}; incus snapshot create s snap0'"
+            " --prepare 'incus snapshot delete s snap0'"
+            " --cleanup 'incus delete s --force'" 
+            " 'incus snapshot create s snap0'"
+        )
 
-        for i in range(${toString iterations}):
-            container_name = f"bench-{result_key}-{i}"
+    with subtest("benchmark snapshot copy"):
+        server.succeed(
+            "hyperfine --runs ${toString iterations} --export-json bench-snapshot-copy.json"
+            " --parameter-list pool btrfs,lvm,zfs"
+            " --setup 'incus launch base-container sc -s {pool}; incus snapshot create sc snap0; incus copy sc/snap0 sc-copy -s {pool}'"
+            " --prepare 'incus delete sc-copy --force'"
+            " --cleanup 'incus delete sc-copy --force; incus delete sc --force'" 
+            " 'incus copy sc/snap0 sc-copy -s {pool}'"
+        )
 
-            create_time = time_command(f"incus launch base-container {container_name} -s {pool_name}")
-            results[result_key]["create"].append(create_time)
-            print(f"  [{i+1}/${toString iterations}] Create: {create_time:.3f}s")
 
-            server.succeed(f"incus stop {container_name} --force")
-            start_time = time_command(f"incus start {container_name}")
-            results[result_key]["start"].append(start_time)
-            print(f"  [{i+1}/${toString iterations}] Start: {start_time:.3f}s")
-
-            snap_name = f"snap{i}"
-            snapshot_time = time_command(f"incus snapshot create {container_name} {snap_name}")
-            results[result_key]["snapshot_create"].append(snapshot_time)
-            print(f"  [{i+1}/${toString iterations}] Snapshot create: {snapshot_time:.3f}s")
-
-            restore_container = f"{container_name}-from-snap"
-            copy_time = time_command(f"incus copy {container_name}/{snap_name} {restore_container} -s {pool_name}")
-            results[result_key]["snapshot_copy"].append(copy_time)
-            print(f"  [{i+1}/${toString iterations}] Snapshot copy: {copy_time:.3f}s")
-
-            server.succeed(f"incus delete {restore_container} --force")
-
-            stop_time = time_command(f"incus stop {container_name} --force")
-            results[result_key]["stop"].append(stop_time)
-            print(f"  [{i+1}/${toString iterations}] Stop: {stop_time:.3f}s")
-
-            destroy_time = time_command(f"incus delete {container_name} --force")
-            results[result_key]["destroy"].append(destroy_time)
-            print(f"  [{i+1}/${toString iterations}] Destroy: {destroy_time:.3f}s")
-
-    print("\n" + "="*70)
-    print("BENCHMARK RESULTS")
-    print("="*70)
-
-    def avg(lst):
-        return statistics.mean(lst) if lst else 0
-
-    def format_ranked(name, btrfs_val, lvm_val, zfs_val, lower_better=False):
-        vals = {"btrfs": btrfs_val, "lvm": lvm_val, "zfs": zfs_val}
-        non_zero = {k: v for k, v in vals.items() if v > 0}
-
-        if len(non_zero) == 0:
-            return f"  {name}: N/A"
-
-        if lower_better:
-            sorted_fs = sorted(non_zero.items(), key=lambda x: x[1])
-        else:
-            sorted_fs = sorted(non_zero.items(), key=lambda x: x[1], reverse=True)
-
-        best_name, best_val = sorted_fs[0]
-
+    print("\n" + "="*60)
+    print("BENCHMARK RESULTS (mean, seconds)")
+    print("="*60)
+    
+    for bench_name in [ "create", "delete", "start-stop", "snapshot", "snapshot-copy" ]:
+        results = json.loads(server.succeed(f"cat bench-{bench_name}.json"))["results"]
+        ranked = sorted(results, key=lambda r: r["mean"])
+        best = ranked[0]["mean"]
+        
         parts = []
-        i = 0
-        while i < len(sorted_fs):
-            current_name, current_val = sorted_fs[i]
-            tied = [current_name]
-            j = i + 1
-            while j < len(sorted_fs):
-                _, next_val = sorted_fs[j]
-                if abs(current_val - next_val) / max(current_val, next_val) < 0.05:
-                    tied.append(sorted_fs[j][0])
-                    j += 1
-                else:
-                    break
-
-            if len(tied) > 1:
-                parts.append(" = ".join(tied))
+        for i, r in enumerate(ranked):
+            pool_name = r.get("parameters", {}).get("pool", r["command"])
+            
+            if i == 0:
+                parts.append(f"{pool_name} ({r['mean']:.3f}s)")
             else:
-                if i == 0:
-                    parts.append(current_name)
-                else:
-                    ratio = current_val / best_val
-                    if lower_better:
-                        parts.append(f"{current_name} ({ratio:.1f}x)")
-                    else:
-                        parts.append(f"{current_name} ({1/ratio:.1f}x)")
-            i = j
-
-        return f"  {name}: {' > '.join(parts)}"
-
-    print("\nLifecycle Operations:")
-    print(format_ranked("Create", avg(results["btrfs"]["create"]), avg(results["lvm"]["create"]), avg(results["zfs"]["create"]), lower_better=True))
-    print(format_ranked("Destroy", avg(results["btrfs"]["destroy"]), avg(results["lvm"]["destroy"]), avg(results["zfs"]["destroy"]), lower_better=True))
-    print(format_ranked("Snapshot", avg(results["btrfs"]["snapshot_create"]), avg(results["lvm"]["snapshot_create"]), avg(results["zfs"]["snapshot_create"]), lower_better=True))
-    print(format_ranked("Snapshot copy", avg(results["btrfs"]["snapshot_copy"]), avg(results["lvm"]["snapshot_copy"]), avg(results["zfs"]["snapshot_copy"]), lower_better=True))
-
-    print("\n" + "="*70)
-    print("RAW JSON RESULTS")
-    print("="*70)
-    print(json.dumps(results, indent=2))
-
-    assert len(results["btrfs"]["create"]) == ${toString iterations}, "Btrfs tests incomplete"
-    assert len(results["lvm"]["create"]) == ${toString iterations}, "LVM tests incomplete"
-    assert len(results["zfs"]["create"]) == ${toString iterations}, "ZFS tests incomplete"
+                parts.append(f"{pool_name} ({r['mean']:.3f}s, {r['mean']/best:.1f}x)")
+                
+        print(f"  {bench_name}: {' > '.join(parts)}")
   '';
 }
