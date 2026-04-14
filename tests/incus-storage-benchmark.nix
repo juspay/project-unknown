@@ -6,18 +6,13 @@
 # Lifecycle Operations:
 #   Create (init, no start): btrfs > zfs (4.9x) > lvm (10.2x)
 #   Delete: btrfs > zfs (3.1x) > lvm (6.1x)
-#   Start/stop: btrfs > zfs (1.1x) > lvm (1.2x)  # mostly mount/unmount overhead
+#   Start/stop: btrfs > zfs (1.1x) > lvm (1.2x)
+#     Currently dominated by incus daemon + container init on local pools, so
+#     storage barely contributes. Kept as a baseline — it becomes meaningful
+#     once networked drivers (Ceph RBD map/unmap, LINSTOR/DRBD promote/demote)
+#     are added, where start/stop is bound by network round-trips.
 #   Snapshot: btrfs > zfs (1.3x) > lvm (4.2x)
 #   Snapshot copy (same-pool, CoW-favorable): btrfs > zfs (3.8x) > lvm (6.2x)
-#
-# Why btrfs wins lifecycle:
-#   CoW (copy-on-write) + B-tree: create/snapshot/delete just update metadata.
-#
-# Why ZFS close second:
-#   Also CoW, but more overhead per operation.
-#
-# Why LVM slowest:
-#   No CoW. Must allocate/copy actual blocks for every operation.
 #
 { pkgs, lib, self, ... }:
 let
@@ -67,6 +62,7 @@ in
 
   testScript = ''
     import json
+    import os
 
     server.wait_for_unit("incus.service")
     server.wait_for_unit("incus-preseed.service")
@@ -132,7 +128,9 @@ in
     print("="*60)
     
     for bench_name in [ "create", "delete", "start-stop", "snapshot", "snapshot-copy" ]:
-        results = json.loads(server.succeed(f"cat bench-{bench_name}.json"))["results"]
+        server.copy_from_vm(f"bench-{bench_name}.json")
+        with open(f"{os.environ['out']}/bench-{bench_name}.json") as f:
+            results = json.load(f)["results"]
         ranked = sorted(results, key=lambda r: r["mean"])
         best = ranked[0]["mean"]
         
