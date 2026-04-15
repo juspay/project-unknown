@@ -1,13 +1,14 @@
-# Incus container daemon — host-side configuration
 { lib, node, ... }:
 let
   bridgeName = "incusbr0";
+  role = (node.incus or {}).role or "standalone";
+  isMember = role == "member";
 in
 {
   virtualisation.incus = {
     enable = true;
     preseed = {
-      networks = [
+      networks = lib.mkIf (!isMember) [
         {
           name = bridgeName;
           type = "bridge";
@@ -19,16 +20,16 @@ in
           };
         }
       ];
-      storage_pools = [
+
+      storage_pools = lib.mkIf (!isMember) [
         {
           name = "default";
           driver = "btrfs";
-          config = {
-            source = "/var/lib/incus/storage-pools/default";
-          };
+          config.source = "/var/lib/incus/storage-pools/default";
         }
       ];
-      profiles = [
+
+      profiles = lib.mkIf (!isMember) [
         {
           name = "default";
           config = lib.optionalAttrs node.useHostNixStore (import ./local-overlay-store.nix).incusPreseedConfig;
