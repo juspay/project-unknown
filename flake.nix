@@ -28,7 +28,8 @@
         meta.description = "Dev containers powered by incus and Nix local-overlay-store";
         specialArgs = { inherit inputs; };
 
-        modules."@juspay/incus" = ./clanServices/incus;
+        modules."@juspay/incus"   = ./clanServices/incus;
+        modules."@juspay/step-ca" = ./clanServices/step-ca;
 
         machines =
           let
@@ -77,6 +78,16 @@
             roles.standalone.machines."idliv2-01" = { };
             roles.standalone.machines."idliv2" = { };
           };
+          step-ca = {
+            module.name = "@juspay/step-ca";
+            module.input = "self";
+            roles.server.machines."idliv2-01" = {
+              settings = {
+                name = "pu";
+                dns  = [ "idliv2-01.tail12b27.ts.net" ];
+              };
+            };
+          };
         };
       };
 
@@ -110,17 +121,23 @@
         nixosConfigurations.base-container = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [ ./containers/base ];
-          specialArgs = { node = self.nodes."idliv2-01"; };
+          specialArgs = {
+            node = self.nodes."idliv2-01";
+            sshUserCAKeyPub = self.nixosConfigurations."idliv2-01".config.clan.core.vars.generators.step-ca.files.ssh_user_ca_key_pub.path;
+          };
         };
 
         lib.mkPUClientScript = useSSHCA:
-        let node = self.nodes."idliv2-01"; in
+        let
+          node = self.nodes."idliv2-01";
+          stepCAVars = self.nixosConfigurations."idliv2-01".config.clan.core.vars.generators.step-ca.files;
+        in
         # TODO: PU_ADMIN is not an appropriate name for the env var
         ''
           PU_HOST="''${PU_HOST:-${node.hostName}.tail12b27.ts.net}"
           PU_ADMIN="toor"
         '' + (if useSSHCA then ''
-          export STEP_FINGERPRINT="a1a94de010ff8b2996b4ba4634df5f54db3761dfd92e5974631d0fdae932009b"
+          export STEP_FINGERPRINT="${builtins.readFile stepCAVars.fingerprint.path}"
           export STEP_CA_URL="https://''${PU_HOST}:8443"
           export STEP_PROVISIONER="me@shivaraj-bh.in"
           export PU_USE_SSH_CA=true

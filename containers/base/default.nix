@@ -1,5 +1,5 @@
 # Minimal NixOS container image for Incus
-{ modulesPath, lib, pkgs, node, ... }:
+{ modulesPath, lib, pkgs, node, sshUserCAKeyPub, ... }:
 let
   # Accepts any certificate from the trusted CA
   acceptCAPrincipals = pkgs.writeShellScript "accept-ca-principals" ''
@@ -28,7 +28,7 @@ in
   services.openssh = {
     enable = true;
     extraConfig = ''
-      TrustedUserCAKeys ${../../nodes/idliv2-01/pu-ca.pub}
+      TrustedUserCAKeys ${sshUserCAKeyPub}
       AuthorizedPrincipalsCommand /etc/ssh/accept-ca-principals %i
       AuthorizedPrincipalsCommandUser nobody
     '';

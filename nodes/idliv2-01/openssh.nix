@@ -1,4 +1,4 @@
-{ lib, pkgs, node, ... }:
+{ lib, pkgs, node, config, ... }:
 let
   authLib = if node.useSSHCA
     then ../../pu/lib/identity-cert.sh
@@ -29,7 +29,7 @@ in
     enable = true;
     extraConfig = lib.mkAfter ''
       Match User pu
-        ${lib.optionalString node.useSSHCA "TrustedUserCAKeys ${./pu-ca.pub}"}
+        ${lib.optionalString node.useSSHCA "TrustedUserCAKeys ${config.clan.core.vars.generators.step-ca.files.ssh_user_ca_key_pub.path}"}
         ${lib.optionalString node.useSSHCA "AuthorizedPrincipalsCommand /etc/ssh/accept-ca-principals %i"}
         ${lib.optionalString node.useSSHCA "AuthorizedPrincipalsCommandUser nobody"}
         ${lib.optionalString node.useSSHCA "ExposeAuthInfo yes"}
