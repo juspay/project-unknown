@@ -23,10 +23,12 @@
       ];
 
       clan = {
-        meta.name = "pu-infra";
+        meta.name = "pu";
+        meta.domain = "project-unknown";
+        meta.description = "Dev containers powered by incus and Nix local-overlay-store";
         specialArgs = { inherit inputs; };
-        checks.minNixpkgsVersion.ignore = true;
-        modules."@juspay/incus" = ./services/incus;
+
+        modules."@juspay/incus" = ./clanServices/incus;
 
         machines =
           let
@@ -72,13 +74,14 @@
           incus = {
             module.name = "@juspay/incus";
             module.input = "self";
-            roles.standalone.machines.idliv2-01.settings.useHostNixStore = true;
-            roles.standalone.machines.idliv2.settings.useHostNixStore = true;
+            roles.standalone.machines."idliv2-01" = { };
+            roles.standalone.machines."idliv2" = { };
           };
         };
       };
 
       flake = {
+        # TODO: This needs to go
         nodes = {
           "idliv2-01" = {
             admin = {
@@ -129,7 +132,7 @@
         '';
       };
 
-      perSystem = { pkgs, lib, ... }:
+      perSystem = { inputs', pkgs, lib, ... }:
       {
         formatter = pkgs.nixpkgs-fmt;
 
@@ -169,6 +172,11 @@
             type = "app";
             program = lib.getExe script;
           };
+        devShells.default = pkgs.mkShell {
+          packages = [
+            inputs'.clan-core.packages.clan-cli
+          ];
+        };
       };
     };
 }
