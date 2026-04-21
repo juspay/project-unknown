@@ -23,7 +23,7 @@
       ];
 
       clan = {
-        meta.name = "juspay-nix-infra";
+        meta.name = "pu-infra";
         specialArgs = { inherit inputs; };
         checks.minNixpkgsVersion.ignore = true;
         modules."@juspay/incus" = ./services/incus;
@@ -64,8 +64,8 @@
           };
 
         inventory.machines = {
-          idliv2-01.deploy.targetHost = "root@idliv2-01.tail12b27.ts.net";
-          idliv2.deploy.targetHost = "root@idliv2.tail12b27.ts.net";
+          idliv2-01.deploy.targetHost = "nix-infra@idliv2-01.tail12b27.ts.net";
+          idliv2.deploy.targetHost = "nix-infra@idliv2.tail12b27.ts.net";
         };
 
         inventory.instances = {
