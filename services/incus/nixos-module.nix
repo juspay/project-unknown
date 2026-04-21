@@ -1,10 +1,10 @@
-# Incus container daemon — host-side configuration
-{ lib, node, ... }:
+{ useHostNixStore ? false }:
 let
   bridgeName = "incusbr0";
   ovsBridgeName = "ovsbr0";
+  overlayStore = import ../../common/local-overlay-store.nix;
 in
-{
+{ lib, ... }: {
   virtualisation.incus = {
     enable = true;
     preseed = {
@@ -33,15 +33,13 @@ in
         {
           name = "default";
           driver = "btrfs";
-          config = {
-            source = "/var/lib/incus/storage-pools/default";
-          };
+          config.source = "/var/lib/incus/storage-pools/default";
         }
       ];
       profiles = [
         {
           name = "default";
-          config = lib.optionalAttrs node.useHostNixStore (import ./local-overlay-store.nix).incusPreseedConfig;
+          config = lib.optionalAttrs useHostNixStore overlayStore.incusPreseedConfig;
           devices = {
             eth0 = {
               name = "eth0";
@@ -53,7 +51,7 @@ in
               pool = "default";
               type = "disk";
             };
-          } // (lib.optionalAttrs node.useHostNixStore (import ./local-overlay-store.nix).incusPreseedDevices);
+          } // lib.optionalAttrs useHostNixStore overlayStore.incusPreseedDevices;
         }
       ];
     };

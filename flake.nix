@@ -8,29 +8,35 @@
     agenix.inputs.nixpkgs.follows = "nixpkgs";
     agenix.inputs.darwin.follows = "";
     agenix.inputs.home-manager.follows = "";
+
+    clan-core.url = "git+https://git.clan.lol/clan/clan-core";
+    clan-core.inputs.flake-parts.follows = "flake-parts";
+    clan-core.inputs.nixpkgs.follows = "nixpkgs";
+    # clan-core.inputs.treefmt-nix.follows = ""; # FIXME: infinite recursion
   };
   outputs = inputs@{ self, nixpkgs, disko, flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-darwin" ];
 
-      flake =
-        let
-          admin = {
-            name = "nix-infra";
-            openssh.authorizedKeys.keys = [
-              "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFN5Ov2zDIG59/DaYKjT0sMWIY15er1DZCT9SIak07vK" # shivaraj-bh
-            ];
-          };
-          mkNode = node: nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
-            modules = [
-              ./nodes/${node.hostName}
+      imports = [
+        inputs.clan-core.flakeModules.default
+      ];
+
+      clan = {
+        meta.name = "juspay-nix-infra";
+        specialArgs = { inherit inputs; };
+        checks.minNixpkgsVersion.ignore = true;
+        modules."@juspay/incus" = ./services/incus;
+
+        machines =
+          let
+            commonModules = [
               inputs.agenix.nixosModules.default
-              disko.nixosModules.disko
               ({ node, config, ... }: {
+                nixpkgs.hostPlatform = "x86_64-linux";
                 nix.settings = {
                   max-jobs = "auto";
-                  experimental-features = "nix-command flakes";
+                  experimental-features = [ "nix-command" "flakes" ];
                   trusted-users = [ "root" node.admin.name ];
                   substituters = [
                     "https://cache.nixos.asia/oss"
@@ -45,53 +51,83 @@
                 services.tailscale.enable = true;
               })
             ];
-            specialArgs = { inherit node; };
-          };
-        in
-        {
-          nodes = {
+          in
+          {
             "idliv2-01" = {
-              inherit admin;
-              hostName = "idliv2-01";
-              useSSHCA = true;
-              useHostNixStore = true;
+              imports = [ ./nodes/idliv2-01 ] ++ commonModules;
+              _module.args.node = self.nodes."idliv2-01";
             };
             "idliv2" = {
-              inherit admin;
-              hostName = "idliv2";
-              useSSHCA = false;
-              useHostNixStore = true;
+              imports = [ ./nodes/idliv2 ] ++ commonModules;
+              _module.args.node = self.nodes."idliv2";
             };
           };
 
-          nixosConfigurations = {
-            "idliv2-01"    = mkNode self.nodes."idliv2-01";
-            "idliv2"       = mkNode self.nodes."idliv2";
-            base-container = nixpkgs.lib.nixosSystem {
-              system = "x86_64-linux";
-              modules = [ ./containers/base ];
-              specialArgs = { node = self.nodes."idliv2-01"; };
-            };
-          };
-
-          lib.mkPUClientScript = useSSHCA:
-          let node = self.nodes."idliv2-01"; in
-          # TODO: PU_ADMIN is not an appropriate name for the env var
-          ''
-            PU_HOST="''${PU_HOST:-${node.hostName}.tail12b27.ts.net}"
-            PU_ADMIN="toor"
-          '' + (if useSSHCA then ''
-            export STEP_FINGERPRINT="a1a94de010ff8b2996b4ba4634df5f54db3761dfd92e5974631d0fdae932009b"
-            export STEP_CA_URL="https://''${PU_HOST}:8443"
-            export STEP_PROVISIONER="me@shivaraj-bh.in"
-            export PU_USE_SSH_CA=true
-          '' else ''
-            export PU_USE_SSH_CA=false
-          '') + ''
-            ${builtins.readFile ./pu/lib/ssh-cert.sh}
-            ${builtins.readFile ./pu/pu-client.sh}
-          '';
+        inventory.machines = {
+          idliv2-01.deploy.targetHost = "root@idliv2-01.tail12b27.ts.net";
+          idliv2.deploy.targetHost = "root@idliv2.tail12b27.ts.net";
         };
+
+        inventory.instances = {
+          incus = {
+            module.name = "@juspay/incus";
+            module.input = "self";
+            roles.standalone.machines.idliv2-01.settings.useHostNixStore = true;
+            roles.standalone.machines.idliv2.settings.useHostNixStore = true;
+          };
+        };
+      };
+
+      flake = {
+        nodes = {
+          "idliv2-01" = {
+            admin = {
+              name = "nix-infra";
+              openssh.authorizedKeys.keys = [
+                "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFN5Ov2zDIG59/DaYKjT0sMWIY15er1DZCT9SIak07vK" # shivaraj-bh
+              ];
+            };
+            hostName = "idliv2-01";
+            useSSHCA = true;
+            useHostNixStore = true;
+          };
+          "idliv2" = {
+            admin = {
+              name = "nix-infra";
+              openssh.authorizedKeys.keys = [
+                "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFN5Ov2zDIG59/DaYKjT0sMWIY15er1DZCT9SIak07vK" # shivaraj-bh
+              ];
+            };
+            hostName = "idliv2";
+            useSSHCA = false;
+            useHostNixStore = true;
+          };
+        };
+
+        nixosConfigurations.base-container = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [ ./containers/base ];
+          specialArgs = { node = self.nodes."idliv2-01"; };
+        };
+
+        lib.mkPUClientScript = useSSHCA:
+        let node = self.nodes."idliv2-01"; in
+        # TODO: PU_ADMIN is not an appropriate name for the env var
+        ''
+          PU_HOST="''${PU_HOST:-${node.hostName}.tail12b27.ts.net}"
+          PU_ADMIN="toor"
+        '' + (if useSSHCA then ''
+          export STEP_FINGERPRINT="a1a94de010ff8b2996b4ba4634df5f54db3761dfd92e5974631d0fdae932009b"
+          export STEP_CA_URL="https://''${PU_HOST}:8443"
+          export STEP_PROVISIONER="me@shivaraj-bh.in"
+          export PU_USE_SSH_CA=true
+        '' else ''
+          export PU_USE_SSH_CA=false
+        '') + ''
+          ${builtins.readFile ./pu/lib/ssh-cert.sh}
+          ${builtins.readFile ./pu/pu-client.sh}
+        '';
+      };
 
       perSystem = { pkgs, lib, ... }:
       {
@@ -113,7 +149,6 @@
             ++ lib.optional self.nodes."idliv2-01".useSSHCA pkgs.step-cli;
           text = self.lib.mkPUClientScript self.nodes."idliv2-01".useSSHCA;
         };
-
 
         apps.incus-import-container =
           let

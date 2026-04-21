@@ -33,7 +33,7 @@ in
   nodes = {
     server = { pkgs, ... }: {
       imports = [
-        ../common/incus.nix
+        (import ../services/incus/nixos-module.nix { useHostNixStore = false; })
         ../nodes/idliv2-01/openssh.nix
       ];
 
