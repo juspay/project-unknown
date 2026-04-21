@@ -2,6 +2,7 @@
 { lib, node, ... }:
 let
   bridgeName = "incusbr0";
+  ovsBridgeName = "ovsbr0";
 in
 {
   virtualisation.incus = {
@@ -16,6 +17,15 @@ in
             "ipv4.nat" = "true";
             "ipv6.address" = "auto";
             "ipv6.nat" = "true";
+          };
+        }
+        {
+          name = ovsBridgeName;
+          type = "bridge";
+          config = {
+            "bridge.driver" = "openvswitch";
+            "ipv4.address" = "10.0.20.1/24";
+            "ipv4.nat" = "true";
           };
         }
       ];
@@ -35,7 +45,7 @@ in
           devices = {
             eth0 = {
               name = "eth0";
-              network = bridgeName;
+              network = ovsBridgeName;
               type = "nic";
             };
             root = {
@@ -49,6 +59,8 @@ in
     };
   };
 
+  virtualisation.vswitch.enable = true;
+
   networking.nftables.enable = true;
-  networking.firewall.trustedInterfaces = [ bridgeName ];
+  networking.firewall.trustedInterfaces = [ bridgeName ovsBridgeName ];
 }
