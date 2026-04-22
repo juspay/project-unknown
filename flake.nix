@@ -4,11 +4,6 @@
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    agenix.url = "github:ryantm/agenix";
-    agenix.inputs.nixpkgs.follows = "nixpkgs";
-    agenix.inputs.darwin.follows = "";
-    agenix.inputs.home-manager.follows = "";
-
     clan-core.url = "git+https://git.clan.lol/clan/clan-core";
     clan-core.inputs.flake-parts.follows = "flake-parts";
     clan-core.inputs.nixpkgs.follows = "nixpkgs";
@@ -44,7 +39,6 @@
         machines =
           let
             commonModules = [
-              inputs.agenix.nixosModules.default
               ({ node, config, ... }: {
                 nixpkgs.hostPlatform = "x86_64-linux";
                 nix.settings = {
@@ -59,7 +53,7 @@
                     "juspay:5aHaNForWL03wKOGhUn/al4BZd3HqZDWZ3hrVTcf6Fg="
                     "oss:KO872wNJkCDgmGN3xy9dT89WAhvv13EiKncTtHDItVU="
                   ];
-                  netrc-file = config.age.secrets."netrc-juspay".path;
+                  netrc-file = config.clan.core.vars.generators.netrc-juspay.files.netrc.path;
                 };
                 services.tailscale.enable = true;
               })
