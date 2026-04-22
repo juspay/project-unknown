@@ -10,7 +10,7 @@
     # clan-core.inputs.treefmt-nix.follows = ""; # FIXME: infinite recursion
   };
   outputs = inputs@{ self, nixpkgs, disko, flake-parts, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
+    flake-parts.lib.mkFlake { inherit inputs; } ({config, ... }: {
       systems = [ "x86_64-linux" "aarch64-darwin" ];
 
       imports = [
@@ -79,8 +79,13 @@
           incus = {
             module.name = "@juspay/incus";
             module.input = "self";
-            roles.standalone.machines."idliv2-01" = { };
-            roles.standalone.machines."idliv2" = { };
+            roles.bootstrap.machines."idliv2-01" = {
+              settings.clusterAddress = "idliv2-01.tail12b27.ts.net";
+              settings.clusterPort = 8444;
+            };
+            roles.member.machines."idliv2" = {
+              settings.clusterPort = 8444;
+            };
           };
           step-ca = {
             module.name = "@juspay/step-ca";
@@ -191,6 +196,41 @@
           text = self.lib.mkPUClientScript self.nodes."idliv2-01".useSSHCA;
         };
 
+        apps.incus-cluster-join =
+          let
+            script = pkgs.writeShellApplication {
+              name = "incus-cluster-join";
+              runtimeInputs = [ 
+                inputs'.clan-core.packages.clan-cli
+              ];
+              text = 
+                let
+                  bootstrap = lib.head (lib.attrNames config.flake.clan.inventory.instances.incus.roles.bootstrap.machines);
+                  members = lib.attrNames config.flake.clan.inventory.instances.incus.roles.member.machines;
+                  clusterPort = 8444; # FIXME: don't hardcode
+                in
+                lib.concatMapStrings (member:
+                  ''
+                    echo "Getting join token for ${member} from ${bootstrap}..."
+                    token=$(clan ssh ${bootstrap} -c incus cluster add --quiet ${member})
+
+                    echo "Joining cluster on ${member}..."
+                    clan ssh ${member} -c incus admin init --preseed <<EOF
+                    cluster:
+                      enabled: true
+                      server_address: ${config.flake.clan.inventory.machines.${member}.deploy.targetHost}:${builtins.toString clusterPort}
+                      cluster_token: ''${token}
+                    EOF
+                    echo "Done. ${member} has joined the cluster."
+                  ''
+                ) members;
+            };
+          in
+          {
+            type = "app";
+            program = lib.getExe script;
+          };
+
         apps.incus-import-container =
           let
             container = self.nixosConfigurations.base-container;
@@ -216,5 +256,5 @@
           ];
         };
       };
-    };
+    });
 }
