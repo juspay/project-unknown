@@ -109,10 +109,22 @@
               };
             };
           };
-          admin = {
+          sshd = {
+            roles.server.tags.all = { };
+            roles.server.settings = {
+              authorizedKeys = {
+                shivaraj-bh = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFN5Ov2zDIG59/DaYKjT0sMWIY15er1DZCT9SIak07vK";
+              };
+              certificate.enable = false;
+            };
+          };
+          users-root = {
+            module.name = "users";
+            module.input = "clan-core";
             roles.default.tags.all = { };
-            roles.default.settings.allowedKeys = {
-              shivaraj-bh = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFN5Ov2zDIG59/DaYKjT0sMWIY15er1DZCT9SIak07vK";
+            roles.default.settings = {
+              user = "root";
+              prompt = false;
             };
           };
         };
