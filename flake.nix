@@ -40,7 +40,7 @@
                 nix.settings = {
                   max-jobs = "auto";
                   experimental-features = [ "nix-command" "flakes" ];
-                  trusted-users = [ "root" node.admin.name ];
+                  trusted-users = [ "root" ];
                   substituters = [
                     "https://cache.nixos.asia/oss"
                     "https://cache.nixos.asia/juspay"
@@ -67,8 +67,8 @@
           };
 
         inventory.machines = {
-          idliv2-01.deploy.targetHost = "nix-infra@idliv2-01.tail12b27.ts.net";
-          idliv2.deploy.targetHost = "nix-infra@idliv2.tail12b27.ts.net";
+          idliv2-01.deploy.targetHost = "idliv2-01.tail12b27.ts.net";
+          idliv2.deploy.targetHost = "idliv2.tail12b27.ts.net";
         };
 
         inventory.instances = {
@@ -88,6 +88,12 @@
               };
             };
           };
+          admin = {
+            roles.default.tags.all = { };
+            roles.default.settings.allowedKeys = {
+              shivaraj-bh = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFN5Ov2zDIG59/DaYKjT0sMWIY15er1DZCT9SIak07vK";
+            };
+          };
         };
       };
 
@@ -95,23 +101,11 @@
         # TODO: This needs to go
         nodes = {
           "idliv2-01" = {
-            admin = {
-              name = "nix-infra";
-              openssh.authorizedKeys.keys = [
-                "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFN5Ov2zDIG59/DaYKjT0sMWIY15er1DZCT9SIak07vK" # shivaraj-bh
-              ];
-            };
             hostName = "idliv2-01";
             useSSHCA = true;
             useHostNixStore = true;
           };
           "idliv2" = {
-            admin = {
-              name = "nix-infra";
-              openssh.authorizedKeys.keys = [
-                "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFN5Ov2zDIG59/DaYKjT0sMWIY15er1DZCT9SIak07vK" # shivaraj-bh
-              ];
-            };
             hostName = "idliv2";
             useSSHCA = false;
             useHostNixStore = true;
