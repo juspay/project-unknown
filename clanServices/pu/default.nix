@@ -27,7 +27,7 @@
 
     perInstance = { settings, exports, mkExports, machine, ... }:
     let
-      pkiExports = builtins.attrValues (clanLib.selectExports (_: true) exports);
+      pkiExports = builtins.filter (e: e ? pki) (builtins.attrValues (clanLib.selectExports (_: true) exports));
       pki = if pkiExports == [] then null else (builtins.head pkiExports).pki;
     in {
       nixosModule = { config, pkgs, lib, ... }:
