@@ -28,8 +28,18 @@
         meta.description = "Dev containers powered by incus and Nix local-overlay-store";
         specialArgs = { inherit inputs; };
 
+        exportInterfaces.pki = { lib, ... }: {
+          options = {
+            caUrl        = lib.mkOption { type = lib.types.str; };
+            fingerprint  = lib.mkOption { type = lib.types.str; };
+            sshUserCAPub = lib.mkOption { type = lib.types.str; };
+            provisioner  = lib.mkOption { type = lib.types.str; };
+          };
+        };
+
         modules."@juspay/incus"   = ./clanServices/incus;
         modules."@juspay/step-ca" = ./clanServices/step-ca;
+        modules."@juspay/pu"      = ./clanServices/pu;
 
         machines =
           let
@@ -83,8 +93,19 @@
             module.input = "self";
             roles.server.machines."idliv2-01" = {
               settings = {
-                name = "pu";
-                dns  = [ "idliv2-01.tail12b27.ts.net" ];
+                name        = "pu";
+                dns         = [ "idliv2-01.tail12b27.ts.net" ];
+                provisioner = "me@shivaraj-bh.in";
+              };
+            };
+          };
+          pu = {
+            module.name = "@juspay/pu";
+            module.input = "self";
+            roles.manager.machines."idliv2-01" = {
+              settings = {
+                instanceManager = "incus";
+                certAuthority   = "step-ca";
               };
             };
           };

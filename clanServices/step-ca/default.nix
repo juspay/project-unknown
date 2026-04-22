@@ -1,6 +1,7 @@
-{ ... }: {
+{ directory, lib, clanLib, ... }: {
   _class = "clan.service";
   manifest.name = "step-ca";
+  manifest.exports.out = [ "pki" ];
 
   roles.server = {
     description = "smallstep certificate authority with SSH signing";
@@ -14,10 +15,33 @@
           type = lib.types.listOf lib.types.str;
           description = "DNS names the CA will be reachable at";
         };
+        provisioner = lib.mkOption {
+          type = lib.types.str;
+          description = "Step-CA provisioner account name";
+        };
       };
     };
 
-    perInstance = { settings, ... }: {
+    perInstance = { settings, mkExports, machine, ... }: {
+      exports = mkExports {
+        pki = {
+          caUrl       = "https://${lib.head settings.dns}:8443";
+          provisioner = settings.provisioner;
+          fingerprint = clanLib.getPublicValue {
+            machine   = machine.name;
+            generator = "step-ca";
+            file      = "fingerprint";
+            flake     = directory;
+          };
+          sshUserCAPub = clanLib.getPublicValue {
+            machine   = machine.name;
+            generator = "step-ca";
+            file      = "ssh_user_ca_key_pub";
+            flake     = directory;
+          };
+        };
+      };
+
       nixosModule = { config, pkgs, lib, ... }: {
         clan.core.vars.generators.step-ca = {
           runtimeInputs = [ pkgs.step-cli pkgs.jq ];
@@ -53,7 +77,7 @@
               ${lib.concatMapStringsSep " " (d: "--dns ${d}") settings.dns} \
               --address :${builtins.toString config.services.step-ca.port} \
               --password-file "$out/intermediate_password" \
-              --provisioner me@shivaraj-bh.in \
+              --provisioner ${settings.provisioner} \
               --provisioner-password-file "$out/provisioner_password"
 
             cp "$STEPDIR/certs/root_ca.crt"         "$out/root_ca_crt"
