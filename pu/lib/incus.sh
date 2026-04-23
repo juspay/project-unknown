@@ -33,6 +33,16 @@ inst_exists() {
   incus info -- "$name" >/dev/null 2>&1
 }
 
+inst_ssh_ready() {
+  local name="$1"
+  incus exec "$name" -- systemctl is-active sshd.socket >/dev/null 2>&1
+}
+
+inst_ssh_proxy() {
+  local name="$1"
+  exec incus exec "$name" -- /run/current-system/sw/bin/socat - TCP4:127.0.0.1:22 2>/dev/null
+}
+
 inst_fork() {
   local source="$1" new_name="$2"
   local snapshot owner

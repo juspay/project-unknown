@@ -70,6 +70,7 @@ in
     git
     curl
     htop
+    socat
   ];
 
   system.stateVersion = "25.11";

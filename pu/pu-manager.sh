@@ -66,12 +66,11 @@ case "$cmd" in
     name="${args[1]:-}"
     [ -z "$name" ] && { echo "ERR usage: wait <name>" >&2; exit 1; }
     require_instance_access "$name" "$identity"
-    for _ in $(seq 1 30); do
-      ip=$(inst_get_ip "$name") || true
-      if [ -n "$ip" ] && tcp_probe "$ip" 22; then
+    for _ in $(seq 1 120); do
+      if inst_ssh_ready "$name"; then
         netrc="/run/agenix/netrc-juspay"
         [ -f "$netrc" ] && inst_push_file "$name" "$netrc" "/etc/nix/netrc" 0 0 0400
-        echo "OK $ip"
+        echo "OK ready"
         exit 0
       fi
       sleep 1
@@ -83,9 +82,7 @@ case "$cmd" in
     name="${args[1]:-}"
     [ -z "$name" ] && { echo "ERR usage: connect <name>" >&2; exit 1; }
     require_instance_access "$name" "$identity"
-    ip=$(inst_get_ip "$name")
-    [ -z "$ip" ] && { echo "ERR no IPv4 for $name" >&2; exit 1; }
-    tcp_connect "$ip" 22
+    inst_ssh_proxy "$name"
     ;;
   fork)
     source="${args[1]:-}"

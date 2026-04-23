@@ -26,7 +26,7 @@
 
     perInstance = { settings, machine, ... }: {
       nixosModule =
-        { ... }:
+        { inputs, pkgs, lib, ... }:
         {
           imports = [ (import ./standalone.nix { inherit (settings) useHostNixStore; }) ];
 
@@ -36,6 +36,32 @@
               server_name = machine.name;
               enabled = true;
             };
+          };
+
+          systemd.services.incus-import-container = {
+            description = "Import initial NixOS container";
+            wantedBy = [ "multi-user.target" ];
+            after = [ "incus-preseed.service" ];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+            };
+            script = 
+              let
+                container = inputs.self.nixosConfigurations.base-container;
+                metadata = container.config.system.build.metadata;
+                squashfs = container.config.system.build.squashfs;
+                script = pkgs.writeShellApplication {
+                  name = "incus-import-nixos-container";
+                  runtimeInputs = [ pkgs.incus ];
+                  text = ''
+                    incus image delete base-container 2>/dev/null || true
+                    echo "Importing container image..."
+                    incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container
+                    echo "Done. Launch with: incus launch base-container <name>"
+                  '';
+                };
+              in ''${lib.getExe script}'';
           };
 
           networking.firewall.allowedTCPPorts = [ settings.clusterPort ];
@@ -57,12 +83,37 @@
 
     perInstance = { settings, ... }: {
       nixosModule =
-        { pkgs, ... }:
+        { inputs, pkgs, lib, ... }:
         {
           virtualisation.incus.enable = true;
-          virtualisation.vswitch.enable = true;
+          systemd.services.incus-import-container = {
+            description = "Import initial NixOS container";
+            wantedBy = [ "multi-user.target" ];
+            after = [ "incus.service" ];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+            };
+            script = 
+              let
+                container = inputs.self.nixosConfigurations.base-container;
+                metadata = container.config.system.build.metadata;
+                squashfs = container.config.system.build.squashfs;
+                script = pkgs.writeShellApplication {
+                  name = "incus-import-nixos-container";
+                  runtimeInputs = [ pkgs.incus ];
+                  text = ''
+                    incus image delete base-container 2>/dev/null || true
+                    echo "Importing container image..."
+                    incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container
+                    echo "Done. Launch with: incus launch base-container <name>"
+                  '';
+                };
+              in ''${lib.getExe script}'';
+          };
           networking.nftables.enable = true;
           networking.firewall.allowedTCPPorts = [ settings.clusterPort ];
+          networking.firewall.trustedInterfaces = [ "incusbr0" ];
         };
     };
   };

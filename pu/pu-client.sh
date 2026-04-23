@@ -8,9 +8,9 @@ write_ssh_config() {
 
   local proxy_cmd
   if [ "${PU_USE_SSH_CA:-}" != "true" ]; then
-    proxy_cmd="ssh pu@$PU_HOST \"connect $name\""
+    proxy_cmd="ssh -T pu@$PU_HOST \"connect $name\""
   else
-    proxy_cmd="ssh -i $PU_STATE_DIR/key -o CertificateFile=$PU_STATE_DIR/key-cert.pub -o IdentitiesOnly=yes pu@$PU_HOST \"connect $name\""
+    proxy_cmd="ssh -T -i $PU_STATE_DIR/key -o CertificateFile=$PU_STATE_DIR/key-cert.pub -o IdentitiesOnly=yes pu@$PU_HOST \"connect $name\""
   fi
 
   {

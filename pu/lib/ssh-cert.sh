@@ -19,5 +19,5 @@ client_auth_init() {
 
 pu_ssh() {
   # shellcheck disable=SC2029
-  ssh "${_pu_ssh_opts[@]}" "pu@${PU_HOST}" "$@"
+  ssh -nT "${_pu_ssh_opts[@]}" "pu@${PU_HOST}" "$@"
 }

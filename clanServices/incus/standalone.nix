@@ -1,7 +1,6 @@
 { useHostNixStore ? false }:
 let
   bridgeName = "incusbr0";
-  ovsBridgeName = "ovsbr0";
   overlayStore = import ../../common/local-overlay-store.nix;
 in
 { lib, ... }: {
@@ -19,15 +18,6 @@ in
             "ipv6.nat" = "true";
           };
         }
-        {
-          name = ovsBridgeName;
-          type = "bridge";
-          config = {
-            "bridge.driver" = "openvswitch";
-            "ipv4.address" = "10.0.20.1/24";
-            "ipv4.nat" = "true";
-          };
-        }
       ];
       storage_pools = [
         {
@@ -43,7 +33,7 @@ in
           devices = {
             eth0 = {
               name = "eth0";
-              network = ovsBridgeName;
+              network = bridgeName;
               type = "nic";
             };
             root = {
@@ -57,8 +47,6 @@ in
     };
   };
 
-  virtualisation.vswitch.enable = true;
-
   networking.nftables.enable = true;
-  networking.firewall.trustedInterfaces = [ bridgeName ovsBridgeName ];
+  networking.firewall.trustedInterfaces = [ bridgeName ];
 }

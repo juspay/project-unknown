@@ -16,22 +16,32 @@ Commands:
   list                             List your instances
 ```
 
-## Milestones
+## Limitations
 
-- [x] `pu` CLI for instance management (create/destroy/list)
-- [x] Incus integration for LXC
-- [x] SSH Certificate-based authentication
-- [ ] Opencode contributing to [services-flake#563](https://github.com/juspay/services-flake/issues/563) via pu instances
-- [ ] Multiple opencode agents in kolu, running pu instances to contribute to a large internal Juspay project in parallel
+- No direct cross-instance networking across cluster members; access goes through the manager for simplicity.
 
-## Todo
+## Incus Reset
 
-- [X] VM test
-- [X] Custom hostname
-- [X] Rename "hypervisor" → "container and VM manager" for Incus
-- [X] ext4 -> btrfs -- for instant snapshots
-  - [X] Change Incus storage to `driver = "btrfs"` -- for instant CoW instance cloning
-  - Gemini: ZFS handles VM block storage and snapshots significantly better than Btrfs, provided you have the RAM to feed it. Choose btrfs if running only LXC. 
-  - [X] Add snapshot and fork commands to pu-manager
-- [X] Shared /nix/store (local-overlay-store)
-- [ ] Add a skill for LLM agents to use pu instances
+If the Incus cluster state gets wedged and you want to rebuild it from scratch:
+
+1. On each machine, stop and cleanup incus state:
+
+```sh
+incus list -c n --format csv | xargs -r -n1 incus delete -f
+systemctl stop incus.socket && systemctl stop incus.service && btrfs subvolume delete --recursive /var/lib/incus/storage-pools/default/ && rm -rf /var/lib/incus
+ip link set incusbr0 down
+ip link delete incusbr0 type bridge
+```
+
+2. Re-deploy the machines:
+
+```sh
+clan machines update
+```
+
+3. Re-join the cluster:
+
+```sh
+nix run .#incus-cluster-join
+```
+
