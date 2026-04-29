@@ -48,7 +48,7 @@
 
         pu-manager = pkgs.writeShellApplication {
           name = "pu-manager";
-          runtimeInputs = with pkgs; [ incus coreutils openssh socat gawk gnugrep ];
+          runtimeInputs = with pkgs; [ incus coreutils openssh socat gawk gnugrep jq ];
           text = ''
             ${builtins.readFile authLib}
             ${builtins.readFile ../../pu/lib/incus.sh}

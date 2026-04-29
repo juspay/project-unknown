@@ -27,7 +27,7 @@ in
 
   nodes.server = { pkgs, ... }: {
     imports = [
-      (import ../services/incus/nixos-module.nix { useHostNixStore = false; })
+      (import ../clanServices/incus/standalone.nix { useHostNixStore = false; })
     ];
 
     virtualisation.incus.preseed.storage_pools = lib.mkForce [ ]; # We setup the pools in the testScript below

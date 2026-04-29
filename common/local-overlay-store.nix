@@ -56,7 +56,9 @@ in
         # Nix in single-user mode calls chmod on its state dirs, which requires
         # ownership. Give toor ownership so both toor and root (via caps) can use nix.
         mkdir -p /nix/var/nix/profiles/per-user
+        mkdir -p /nix/var/log/nix/drvs
         chown -R toor:wheel /nix/var/nix
+        chown -R toor:wheel /nix/var/log/nix
         chmod 1777 /nix/var/nix/temproots
 
         mount --make-private /nix/store
@@ -75,6 +77,9 @@ in
       "d /nix/var/nix/profiles 0755 toor wheel -"
       "d /nix/var/nix/profiles/per-user 0755 toor wheel -"
       "d /nix/var/nix/temproots 1777 root root -"
+      "d /nix/var/log 0755 root root -"
+      "d /nix/var/log/nix 0755 toor wheel -"
+      "d /nix/var/log/nix/drvs 0755 toor wheel -"
     ];
   };
 }

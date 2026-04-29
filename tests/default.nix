@@ -24,6 +24,17 @@ let
     text = self.lib.mkPUClientScript node.useSSHCA;
   };
 
+  puManager = pkgs.writeShellApplication {
+    name = "pu-manager";
+    runtimeInputs = with pkgs; [ incus coreutils openssh socat gawk gnugrep jq ];
+    text = ''
+      ${builtins.readFile ../pu/lib/identity-dev.sh}
+      ${builtins.readFile ../pu/lib/incus.sh}
+      ${builtins.readFile ../pu/lib/tcp.sh}
+      ${builtins.readFile ../pu/pu-manager.sh}
+    '';
+  };
+
   metadata = test-container.config.system.build.metadata;
   squashfs = test-container.config.system.build.squashfs;
 in
@@ -33,7 +44,7 @@ in
   nodes = {
     server = { pkgs, ... }: {
       imports = [
-        (import ../services/incus/nixos-module.nix { useHostNixStore = false; })
+        (import ../clanServices/incus/standalone.nix { useHostNixStore = false; })
         ../nodes/idliv2-01/openssh.nix
       ];
 
@@ -67,7 +78,16 @@ in
         extraGroups = [ "incus-admin" ];
         openssh.authorizedKeys.keyFiles = [ "${test-key}/id_ed25519.pub" ];
       };
-      users.groups.pu = {};
+      users.groups.pu = { };
+
+      services.openssh.extraConfig = lib.mkAfter ''
+        Match User pu
+          ForceCommand ${lib.getExe puManager}
+          PermitTTY no
+          AllowTcpForwarding no
+          AllowAgentForwarding no
+          X11Forwarding no
+      '';
 
       system.stateVersion = "25.11";
     };
@@ -118,6 +138,10 @@ in
       print(f"connect result: {connect_result}")
       assert instance_name in connect_result, f"hostname mismatch: expected {instance_name}, got {connect_result}"
 
+    with subtest("write home state"):
+      client.succeed(f"ssh -F /root/.pu-state/{instance_name}/ssh_config {instance_name} 'printf forked-home > ~/fork-marker' 2>&1")
+      client.succeed(f"ssh -F /root/.pu-state/{instance_name}/ssh_config {instance_name} 'printf rootfs-state > /var/tmp/root-marker' 2>&1")
+
     with subtest("fork instance"):
       fork_result = client.succeed(f"PU_HOST=server pu fork {instance_name} 2>&1")
       print(f"fork result: {fork_result}")
@@ -134,12 +158,20 @@ in
       print(f"connect result: {connect_result}")
       assert fork_name in connect_result, f"hostname mismatch: expected {fork_name}, got {connect_result}"
 
+    with subtest("fork preserves home state"):
+      home_result = client.succeed(f"ssh -F /root/.pu-state/{fork_name}/ssh_config {fork_name} 'cat ~/fork-marker' 2>&1")
+      assert "forked-home" in home_result, f"fork did not preserve home state: {home_result}"
+      root_result = client.succeed(f"ssh -F /root/.pu-state/{fork_name}/ssh_config {fork_name} 'test ! -e /var/tmp/root-marker && echo rootfs-clean' 2>&1")
+      assert "rootfs-clean" in root_result, f"fork preserved rootfs state unexpectedly: {root_result}"
+
     with subtest("destroy fork"):
       destroy_result = client.succeed(f"PU_HOST=server pu destroy {fork_name} 2>&1")
       print(f"destroy result: {destroy_result}")
+      server.fail(f"incus storage volume show default pu-home-{fork_name}")
 
     with subtest("destroy instance"):
       destroy_result = client.succeed(f"PU_HOST=server pu destroy {instance_name} 2>&1")
       print(f"destroy result: {destroy_result}")
+      server.fail(f"incus storage volume show default pu-home-{instance_name}")
   '';
 }

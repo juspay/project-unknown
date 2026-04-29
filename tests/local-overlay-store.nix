@@ -23,7 +23,7 @@ in
   name = "local-overlay-store";
 
   nodes.server = { pkgs, lib, ... }: {
-    imports = [ (import ../services/incus/nixos-module.nix { useHostNixStore = true; }) ];
+    imports = [ (import ../clanServices/incus/standalone.nix { useHostNixStore = true; }) ];
     _module.args.node = self.nodes."idliv2-01";
     virtualisation.diskSize = 2048; # default 1024 not enough for importing base-container
 
@@ -36,7 +36,7 @@ in
       }
     ];
 
-    environment.systemPackages = [ hostOnlyPackage ];
+    environment.systemPackages = [ hostOnlyPackage pkgs.jq ];
   };
 
   testScript = ''
@@ -54,6 +54,9 @@ in
     with subtest("container can run host-only package"):
       result = server.succeed("incus exec test-overlay -- ${hostOnlyPackage}/bin/host-only-marker")
       assert "built on host" in result, f"Host package not working: {result}"
+
+    with subtest("nix log directories are writable for toor"):
+      server.succeed("incus exec test-overlay -- su -l toor -c 'test -w /nix/var/log/nix && test -w /nix/var/log/nix/drvs'")
 
     with subtest("nix can query host packages through overlay"):
       server.succeed("incus exec test-overlay -- su -l toor -c '${nixPackage}/bin/nix-store --query --hash ${hostOnlyPackage}'")
