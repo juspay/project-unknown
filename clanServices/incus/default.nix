@@ -34,7 +34,7 @@
             name = "incus-import-nixos-container";
             runtimeInputs = [ pkgs.incus ];
             text = ''
-              incus image delete base-container 2>/dev/null || true
+              incus image delete base-container || true
               echo "Importing container image..."
               incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container
               echo "Done. Launch with: incus launch base-container <name>"
