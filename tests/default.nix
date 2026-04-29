@@ -134,13 +134,13 @@ in
       assert instance_name in list_result, f"instance not in list: {list_result}"
 
     with subtest("connect to instance"):
-      connect_result = client.succeed(f"ssh -F /root/.pu-state/{instance_name}/ssh_config {instance_name} hostname 2>&1")
+      connect_result = client.succeed(f"PU_HOST=server pu connect {instance_name} hostname 2>&1")
       print(f"connect result: {connect_result}")
       assert instance_name in connect_result, f"hostname mismatch: expected {instance_name}, got {connect_result}"
 
     with subtest("write home state"):
-      client.succeed(f"ssh -F /root/.pu-state/{instance_name}/ssh_config {instance_name} 'printf forked-home > ~/fork-marker' 2>&1")
-      client.succeed(f"ssh -F /root/.pu-state/{instance_name}/ssh_config {instance_name} 'printf rootfs-state > /var/tmp/root-marker' 2>&1")
+      client.succeed(f"PU_HOST=server pu connect {instance_name} 'printf forked-home > ~/fork-marker' 2>&1")
+      client.succeed(f"PU_HOST=server pu connect {instance_name} 'printf rootfs-state > /var/tmp/root-marker' 2>&1")
 
     with subtest("fork instance"):
       fork_result = client.succeed(f"PU_HOST=server pu fork {instance_name} 2>&1")
@@ -154,14 +154,14 @@ in
       assert fork_name, f"fork failed - no instance name found: {fork_result}"
 
     with subtest("connect to fork"):
-      connect_result = client.succeed(f"ssh -F /root/.pu-state/{fork_name}/ssh_config {fork_name} hostname 2>&1")
+      connect_result = client.succeed(f"PU_HOST=server pu connect {fork_name} -o LogLevel=ERROR -- hostname 2>&1")
       print(f"connect result: {connect_result}")
       assert fork_name in connect_result, f"hostname mismatch: expected {fork_name}, got {connect_result}"
 
     with subtest("fork preserves home state"):
-      home_result = client.succeed(f"ssh -F /root/.pu-state/{fork_name}/ssh_config {fork_name} 'cat ~/fork-marker' 2>&1")
+      home_result = client.succeed(f"PU_HOST=server pu connect {fork_name} 'cat ~/fork-marker' 2>&1")
       assert "forked-home" in home_result, f"fork did not preserve home state: {home_result}"
-      root_result = client.succeed(f"ssh -F /root/.pu-state/{fork_name}/ssh_config {fork_name} 'test ! -e /var/tmp/root-marker && echo rootfs-clean' 2>&1")
+      root_result = client.succeed(f"PU_HOST=server pu connect {fork_name} 'test ! -e /var/tmp/root-marker && echo rootfs-clean' 2>&1")
       assert "rootfs-clean" in root_result, f"fork preserved rootfs state unexpectedly: {root_result}"
 
     with subtest("destroy fork"):

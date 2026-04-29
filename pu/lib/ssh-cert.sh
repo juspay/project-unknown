@@ -1,4 +1,6 @@
 client_auth_init() {
+  _pu_instance_ssh_opts=()
+
   if [ "${PU_USE_SSH_CA:-}" != "true" ]; then
     _pu_ssh_opts=(-o StrictHostKeyChecking=no)
     return
@@ -13,6 +15,7 @@ client_auth_init() {
     step ssh certificate --force --no-agent --no-password --insecure me "$PU_STATE_DIR/key"
   fi
 
+  _pu_instance_ssh_opts=(-i "$PU_STATE_DIR/key" -o "CertificateFile=$PU_STATE_DIR/key-cert.pub" -o IdentitiesOnly=yes)
   _pu_ssh_opts=(-i "$PU_STATE_DIR/key" -o "CertificateFile=$PU_STATE_DIR/key-cert.pub" -o IdentitiesOnly=yes \
     -o "UserKnownHostsFile=$PU_STATE_DIR/known_hosts" -o StrictHostKeyChecking=accept-new)
 }

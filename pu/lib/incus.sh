@@ -24,18 +24,22 @@ inst_home_volume_exists() {
 }
 
 inst_delete_home_volume() {
-  local name="$1" location="${2:-}"
+  local name="$1" location="${2:-}" quiet="${3:-false}"
   local volume target_args=()
   volume=$(inst_home_volume "$name")
   [ -n "$location" ] && target_args=(--target "$location")
   if inst_home_volume_exists "$name" "$location"; then
-    incus storage volume delete "${target_args[@]}" -- "$PU_STORAGE_POOL" "$volume" >/dev/null 2>&1 || return 1
+    if [ "$quiet" = "true" ]; then
+      incus storage volume delete "${target_args[@]}" -- "$PU_STORAGE_POOL" "$volume" >/dev/null 2>&1 || return 1
+    else
+      incus storage volume delete "${target_args[@]}" -- "$PU_STORAGE_POOL" "$volume" || return 1
+    fi
   fi
 }
 
 inst_attach_home_volume() {
   local name="$1" volume="$2"
-  incus storage volume attach -- "$PU_STORAGE_POOL" "$volume" "$name" "$PU_HOME_DEVICE" "$PU_HOME_PATH" >/dev/null 2>&1 || return 1
+  incus storage volume attach -- "$PU_STORAGE_POOL" "$volume" "$name" "$PU_HOME_DEVICE" "$PU_HOME_PATH" || return 1
 
   for _ in $(seq 1 30); do
     incus exec "$name" -- /run/current-system/sw/bin/chown toor "$PU_HOME_PATH" >/dev/null 2>&1 && return 0
@@ -47,14 +51,14 @@ inst_attach_home_volume() {
 
 inst_launch_rootfs() {
   local image="$1" name="$2" owner="$3"
-  incus launch --ephemeral --config "user.pu.owner=$owner" -- "$image" "$name" </dev/null >/dev/null 2>&1
+  incus launch --ephemeral --config "user.pu.owner=$owner" -- "$image" "$name" </dev/null
 }
 
 inst_cleanup_created() {
   local name="$1" location="${2:-}"
   # Best effort cleanup after a create/fork failure; preserve the original failure.
   incus delete --force -- "$name" >/dev/null 2>&1 || true
-  inst_delete_home_volume "$name" "$location" || true
+  inst_delete_home_volume "$name" "$location" true || true
 }
 
 inst_create() {
@@ -67,7 +71,7 @@ inst_create() {
   volume=$(inst_home_volume "$name")
   [ -n "$location" ] && target_args=(--target "$location")
 
-  if ! incus storage volume create "${target_args[@]}" -- "$PU_STORAGE_POOL" "$volume" </dev/null >/dev/null 2>&1; then
+  if ! incus storage volume create "${target_args[@]}" -- "$PU_STORAGE_POOL" "$volume" </dev/null; then
     inst_cleanup_created "$name" "$location"
     return 1
   fi
@@ -82,7 +86,7 @@ inst_destroy() {
   local name="$1"
   local location
   location=$(inst_get_location "$name") || return 1
-  incus delete --force -- "$name" >/dev/null 2>&1 || return 1
+  incus delete --force -- "$name" || return 1
   inst_delete_home_volume "$name" "$location"
 }
 
@@ -138,7 +142,7 @@ inst_fork() {
   copy_args=(--volume-only)
   [ -n "$new_location" ] && copy_args+=(--destination-target "$new_location")
 
-  if ! incus storage volume copy "${copy_args[@]}" -- "$PU_STORAGE_POOL/$source_volume" "$PU_STORAGE_POOL/$new_volume" </dev/null >/dev/null 2>&1; then
+  if ! incus storage volume copy "${copy_args[@]}" -- "$PU_STORAGE_POOL/$source_volume" "$PU_STORAGE_POOL/$new_volume" </dev/null; then
     inst_cleanup_created "$new_name" "$new_location"
     return 1
   fi

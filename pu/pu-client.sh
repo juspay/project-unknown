@@ -1,17 +1,22 @@
 PU_STATE_DIR="${PU_STATE_DIR:-$HOME/.pu-state}"
 mkdir -p "$PU_STATE_DIR"
 
+pu_proxy_command() {
+  local name="$1" proxy_cmd
+  local proxy_args=(ssh -T "${_pu_ssh_opts[@]}" "pu@${PU_HOST}" "connect $name")
+  printf -v proxy_cmd '%q ' "${proxy_args[@]}"
+  printf '%s\n' "${proxy_cmd% }"
+}
+
 write_ssh_config() {
   local name="$1"
   local dir="$PU_STATE_DIR/$name"
   mkdir -p "$dir"
 
+  client_auth_init
+
   local proxy_cmd
-  if [ "${PU_USE_SSH_CA:-}" != "true" ]; then
-    proxy_cmd="ssh -T pu@$PU_HOST \"connect $name\""
-  else
-    proxy_cmd="ssh -T -i $PU_STATE_DIR/key -o CertificateFile=$PU_STATE_DIR/key-cert.pub -o IdentitiesOnly=yes pu@$PU_HOST \"connect $name\""
-  fi
+  proxy_cmd=$(pu_proxy_command "$name")
 
   {
     echo "Host $name"
@@ -68,6 +73,52 @@ pu_fork() {
   pu_launch "fork $source${name:+ $name}" "Forking $source"
 }
 
+pu_connect() {
+  local name="${1:-}"
+  [ -z "$name" ] && {
+    echo "Usage: pu connect <name> [ssh options ...] [-- remote command ...]" >&2
+    exit 1
+  }
+  shift
+
+  local ssh_args=() remote_cmd=() saw_separator=false
+  while [ $# -gt 0 ]; do
+    if [ "$1" = "--" ]; then
+      saw_separator=true
+      shift
+      continue
+    fi
+
+    if [ "$saw_separator" = "false" ] && [ ${#ssh_args[@]} -eq 0 ] && [[ "$1" != -* ]]; then
+      remote_cmd=("$@")
+      break
+    fi
+
+    if [ "$saw_separator" = "true" ]; then
+      remote_cmd+=("$1")
+    else
+      ssh_args+=("$1")
+    fi
+    shift
+  done
+
+  client_auth_init
+
+  local proxy_cmd
+  proxy_cmd=$(pu_proxy_command "$name")
+
+  exec ssh \
+    "${_pu_instance_ssh_opts[@]}" \
+    "${ssh_args[@]}" \
+    -o "ProxyCommand=$proxy_cmd" \
+    -o ForwardAgent=yes \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    -l "$PU_ADMIN" \
+    -- "$name" \
+    "${remote_cmd[@]}"
+}
+
 cmd="${1:-}"
 
 case "$cmd" in
@@ -75,14 +126,19 @@ case "$cmd" in
     shift
     name=$(pu_create "$@")
     echo "$name"
-    echo "Connect: ssh -F $PU_STATE_DIR/$name/ssh_config $name" >&2
+    echo "Connect: pu connect $name" >&2
     ;;
 
   fork)
     shift
     name=$(pu_fork "$@")
     echo "$name"
-    echo "Connect: ssh -F $PU_STATE_DIR/$name/ssh_config $name" >&2
+    echo "Connect: pu connect $name" >&2
+    ;;
+
+  connect)
+    shift
+    pu_connect "$@"
     ;;
 
   destroy)
@@ -103,8 +159,9 @@ case "$cmd" in
 Usage: pu <command>
 
 Commands:
-  create [--name <name>]           Create instance, print ssh command
-  fork <source> [--name <name>]    Fork an existing instance, print ssh command
+  create [--name <name>]           Create instance and print a pu connect command
+  fork <source> [--name <name>]    Fork an existing instance and print a pu connect command
+  connect <name> [ssh args ...]    Connect to an instance via ssh; use -- before a remote command
   destroy <name>                   Destroy an instance
   list                             List your instances
 EOF

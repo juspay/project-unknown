@@ -10,8 +10,9 @@ nix run github:juspay/project-unknown
 Usage: pu <command>
 
 Commands:
-  create [--name <name>]           Create instance, print ssh command
-  fork <source> [--name <name>]    Fork an existing instance, print ssh command
+  create [--name <name>]           Create instance and print a pu connect command
+  fork <source> [--name <name>]    Fork an existing instance and print a pu connect command
+  connect <name> [ssh args ...]    Connect to an instance via ssh; use -- before a remote command
   destroy <name>                   Destroy an instance
   list                             List your instances
 ```
@@ -44,4 +45,3 @@ clan machines update
 ```sh
 nix run .#incus-cluster-join
 ```
-
