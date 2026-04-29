@@ -93,7 +93,7 @@
             roles.server.machines."idliv2-01" = {
               settings = {
                 name        = "pu";
-                dns         = [ "idliv2-01.tail12b27.ts.net" ];
+                dns         = [ "idliv2-01.tail12b27.ts.net" "10.10.69.11" ];
                 provisioner = "me@shivaraj-bh.in";
               };
             };
@@ -160,7 +160,7 @@
         in
         # TODO: PU_ADMIN is not an appropriate name for the env var
         ''
-          PU_HOST="''${PU_HOST:-${node.hostName}.tail12b27.ts.net}"
+          PU_HOST="''${PU_HOST:-10.10.69.11}"
           PU_ADMIN="toor"
         '' + (if useSSHCA then ''
           export STEP_FINGERPRINT="${builtins.readFile stepCAVars.fingerprint.path}"
