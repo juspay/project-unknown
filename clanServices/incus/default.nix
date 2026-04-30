@@ -29,6 +29,7 @@
         { config, inputs, pkgs, lib, ... }:
         let
           inherit (inputs.self.nixosConfigurations.base-container.config.system.build) metadata squashfs;
+          apiTxnsFlakeUrl = "git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-txns.git?ref=staging";
 
           importImage = pkgs.writeShellApplication {
             name = "incus-import-nixos-container";
@@ -45,7 +46,8 @@
             name = "euler-api-txns-refresh";
             runtimeInputs = with pkgs; [ git nix openssh ];
             text = ''
-              exec nix develop 'git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-txns.git?ref=staging' --refresh -c true
+              nix develop '${apiTxnsFlakeUrl}' --refresh -c true
+              nix build '${apiTxnsFlakeUrl}#automation-test-nix' --no-link --print-out-paths
             '';
           };
 
@@ -149,6 +151,7 @@
         { config, inputs, pkgs, lib, ... }:
         let
           inherit (inputs.self.nixosConfigurations.base-container.config.system.build) metadata squashfs;
+          apiTxnsFlakeUrl = "git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-txns.git?ref=staging";
 
           importImage = pkgs.writeShellApplication {
             name = "incus-import-nixos-container";
@@ -165,7 +168,8 @@
             name = "euler-api-txns-refresh";
             runtimeInputs = with pkgs; [ git nix openssh ];
             text = ''
-              exec nix develop 'git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-txns.git?ref=staging' --refresh -c true
+              nix develop '${apiTxnsFlakeUrl}' --refresh -c true
+              nix build '${apiTxnsFlakeUrl}#automation-test-nix' --no-link --print-out-paths
             '';
           };
         in
