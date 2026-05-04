@@ -153,17 +153,6 @@
           inherit (inputs.self.nixosConfigurations.base-container.config.system.build) metadata squashfs;
           apiTxnsFlakeUrl = "git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-txns.git?ref=staging";
 
-          importImage = pkgs.writeShellApplication {
-            name = "incus-import-nixos-container";
-            runtimeInputs = [ pkgs.incus ];
-            text = ''
-              incus image delete base-container 2>/dev/null || true
-              echo "Importing container image..."
-              incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container
-              echo "Done. Launch with: incus launch base-container <name>"
-            '';
-          };
-
           refresh = pkgs.writeShellApplication {
             name = "euler-api-txns-refresh";
             runtimeInputs = with pkgs; [ git nix openssh ];
@@ -180,17 +169,6 @@
             Host ssh.bitbucket.juspay.net
               IdentityFile ${config.clan.core.vars.generators.bitbucket-ssh.files.key.path}
           '';
-
-          systemd.services.incus-import-container = {
-            description = "Import initial NixOS container";
-            wantedBy = [ "multi-user.target" ];
-            after = [ "incus.service" ];
-            serviceConfig = {
-              Type = "oneshot";
-              RemainAfterExit = true;
-            };
-            script = ''${lib.getExe importImage}'';
-          };
 
           systemd.services.euler-api-txns-refresh = {
             description = "Refresh the Euler API txns staging dev environment";
