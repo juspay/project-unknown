@@ -36,7 +36,7 @@ in
   };
 
   nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
+    experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
     sandbox = false;
     substituters = [
       "https://cache.nixos.asia/oss"
@@ -72,6 +72,13 @@ in
     htop
     socat
   ];
+
+  programs.direnv = {
+    enable = true;
+    nix-direnv.enable = true;
+  };
+
+  programs.starship.enable = true;
 
   system.stateVersion = "25.11";
 }
