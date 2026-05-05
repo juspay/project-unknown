@@ -29,7 +29,19 @@
         { config, inputs, pkgs, lib, ... }:
         let
           inherit (inputs.self.nixosConfigurations.base-container.config.system.build) metadata squashfs;
-          apiTxnsFlakeUrl = "git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-txns.git?ref=staging";
+          preCacheRepos = {
+            euler-api-txns = "git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-txns.git?ref=staging";
+            euler-api-customer = "git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-customer.git?ref=staging";
+          };
+
+          refreshScripts = lib.mapAttrs (name: flakeUrl: pkgs.writeShellApplication {
+            name = "${name}-refresh";
+            runtimeInputs = with pkgs; [ git nix openssh ];
+            text = ''
+              nix develop '${flakeUrl}' --refresh -c true
+              nix build '${flakeUrl}#automation-test-nix' --no-link --print-out-paths
+            '';
+          }) preCacheRepos;
 
           importImage = pkgs.writeShellApplication {
             name = "incus-import-nixos-container";
@@ -39,15 +51,6 @@
               echo "Importing container image..."
               incus image import ${metadata}/tarball/nixos-*.tar.xz ${squashfs}/nixos-lxc-image-x86_64-linux.squashfs --alias base-container
               echo "Done. Launch with: incus launch base-container <name>"
-            '';
-          };
-
-          refresh = pkgs.writeShellApplication {
-            name = "euler-api-txns-refresh";
-            runtimeInputs = with pkgs; [ git nix openssh ];
-            text = ''
-              nix develop '${apiTxnsFlakeUrl}' --refresh -c true
-              nix build '${apiTxnsFlakeUrl}#automation-test-nix' --no-link --print-out-paths
             '';
           };
 
@@ -91,43 +94,44 @@
           };
 
           # Member-specific storage keys are rejected in cluster preseed.
-          systemd.services.incus-bootstrap-storage-pool = {
-            description = "Create the Incus default storage pool for the bootstrap member";
-            after = [ "incus-preseed.service" ];
-            requires = [ "incus-preseed.service" ];
-            wantedBy = [ "multi-user.target" ];
-            serviceConfig.Type = "oneshot";
-            script = ''${lib.getExe setupStorage}'';
-          };
+          systemd.services = lib.mkMerge [
+            {
+              incus-bootstrap-storage-pool = {
+                after = [ "incus-preseed.service" ];
+                requires = [ "incus-preseed.service" ];
+                wantedBy = [ "multi-user.target" ];
+                serviceConfig.Type = "oneshot";
+                script = ''${lib.getExe setupStorage}'';
+              };
+              incus-import-container = {
+                wantedBy = [ "multi-user.target" ];
+                after = [ "incus-bootstrap-storage-pool.service" ];
+                serviceConfig = {
+                  Type = "oneshot";
+                  RemainAfterExit = true;
+                };
+                script = ''${lib.getExe importImage}'';
+              };
+            }
+            (lib.mapAttrs' (name: script: lib.nameValuePair "${name}-refresh" {
+              after = [ "network-online.target" "incus.service" ];
+              wants = [ "network-online.target" ];
+              wantedBy = [ "multi-user.target" ];
+              serviceConfig.Type = "oneshot";
+              script = ''${lib.getExe script}'';
+            }) refreshScripts)
+          ];
 
-          systemd.services.incus-import-container = {
-            description = "Import initial NixOS container";
-            wantedBy = [ "multi-user.target" ];
-            after = [ "incus-bootstrap-storage-pool.service" ];
-            serviceConfig = {
-              Type = "oneshot";
-              RemainAfterExit = true;
-            };
-            script = ''${lib.getExe importImage}'';
-          };
-
-          systemd.services.euler-api-txns-refresh = {
-            description = "Refresh the Euler API txns staging dev environment";
-            after = [ "network-online.target" "incus.service" ];
-            wants = [ "network-online.target" ];
-            serviceConfig.Type = "oneshot";
-            script = ''${lib.getExe refresh}'';
-          };
-
-          systemd.timers.euler-api-txns-refresh = {
-            description = "Run the Euler API txns staging dev refresh every 2 hours";
-            wantedBy = [ "timers.target" ];
-            timerConfig = {
-              OnCalendar = "*-*-* 00/2:00:00";
-              Persistent = true;
-              Unit = "euler-api-txns-refresh.service";
-            };
-          };
+          systemd.timers = lib.mkMerge [
+            (lib.mapAttrs' (name: _: lib.nameValuePair "${name}-refresh" {
+              wantedBy = [ "timers.target" ];
+              timerConfig = {
+                OnCalendar = "*-*-* 00/2:00:00";
+                Persistent = true;
+                Unit = "${name}-refresh.service";
+              };
+            }) refreshScripts)
+          ];
 
           networking.firewall.allowedTCPPorts = [ settings.clusterPort ];
         };
@@ -151,16 +155,19 @@
         { config, inputs, pkgs, lib, ... }:
         let
           inherit (inputs.self.nixosConfigurations.base-container.config.system.build) metadata squashfs;
-          apiTxnsFlakeUrl = "git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-txns.git?ref=staging";
+          preCacheRepos = {
+            euler-api-txns = "git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-txns.git?ref=staging";
+            euler-api-customer = "git+ssh://git@ssh.bitbucket.juspay.net/jbiz/euler-api-customer.git?ref=staging";
+          };
 
-          refresh = pkgs.writeShellApplication {
-            name = "euler-api-txns-refresh";
+          refreshScripts = lib.mapAttrs (name: flakeUrl: pkgs.writeShellApplication {
+            name = "${name}-refresh";
             runtimeInputs = with pkgs; [ git nix openssh ];
             text = ''
-              nix develop '${apiTxnsFlakeUrl}' --refresh -c true
-              nix build '${apiTxnsFlakeUrl}#automation-test-nix' --no-link --print-out-paths
+              nix develop '${flakeUrl}' --refresh -c true
+              nix build '${flakeUrl}#automation-test-nix' --no-link --print-out-paths
             '';
-          };
+          }) preCacheRepos;
         in
         {
           virtualisation.incus.enable = true;
@@ -170,23 +177,26 @@
               IdentityFile ${config.clan.core.vars.generators.bitbucket-ssh.files.key.path}
           '';
 
-          systemd.services.euler-api-txns-refresh = {
-            description = "Refresh the Euler API txns staging dev environment";
-            after = [ "network-online.target" "incus.service" ];
-            wants = [ "network-online.target" ];
-            serviceConfig.Type = "oneshot";
-            script = ''${lib.getExe refresh}'';
-          };
+          systemd.services = lib.mkMerge [
+            (lib.mapAttrs' (name: script: lib.nameValuePair "${name}-refresh" {
+              after = [ "network-online.target" "incus.service" ];
+              wants = [ "network-online.target" ];
+              wantedBy = [ "multi-user.target" ];
+              serviceConfig.Type = "oneshot";
+              script = ''${lib.getExe script}'';
+            }) refreshScripts)
+          ];
 
-          systemd.timers.euler-api-txns-refresh = {
-            description = "Run the Euler API txns staging dev refresh every 2 hours";
-            wantedBy = [ "timers.target" ];
-            timerConfig = {
-              OnCalendar = "*-*-* 00/2:00:00";
-              Persistent = true;
-              Unit = "euler-api-txns-refresh.service";
-            };
-          };
+          systemd.timers = lib.mkMerge [
+            (lib.mapAttrs' (name: _: lib.nameValuePair "${name}-refresh" {
+              wantedBy = [ "timers.target" ];
+              timerConfig = {
+                OnCalendar = "*-*-* 00/2:00:00";
+                Persistent = true;
+                Unit = "${name}-refresh.service";
+              };
+            }) refreshScripts)
+          ];
 
           networking.nftables.enable = true;
           networking.firewall.allowedTCPPorts = [ settings.clusterPort ];
