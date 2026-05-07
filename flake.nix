@@ -44,6 +44,7 @@
         inventory.machines = {
           idliv2-01.deploy.targetHost = "idliv2-01.tail12b27.ts.net";
           idliv2.deploy.targetHost = "idliv2.tail12b27.ts.net";
+          idliv2-02.deploy.targetHost = "idliv2-02.tail12b27.ts.net";
         };
 
         inventory.instances = {
@@ -55,6 +56,9 @@
               settings.clusterPort = 8444;
             };
             roles.member.machines."idliv2" = {
+              settings.clusterPort = 8444;
+            };
+            roles.member.machines."idliv2-02" = {
               settings.clusterPort = 8444;
             };
           };
