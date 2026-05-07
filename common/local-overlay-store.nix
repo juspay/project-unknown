@@ -28,7 +28,7 @@ in
     };
   };
 
-  nixosModule = { pkgs, lib, node, ... }: {
+  nixosModule = { pkgs, lib, ... }: {
     nix.settings = {
       experimental-features = [ "local-overlay-store" ];
     };

@@ -1,9 +1,5 @@
 { pkgs, lib, self, ... }:
 let
-  # TODO: enable useHostNixStore
-  # I had to disable it because `pu create` was failing for unknown reasons
-  node = self.nodes."idliv2-01" // { useSSHCA = false; useHostNixStore = false; };
-
   base-container = self.nixosConfigurations.base-container;
 
   test-key = pkgs.runCommand "test-ssh-key" { buildInputs = [ pkgs.openssh ]; } ''
@@ -19,9 +15,11 @@ let
 
   pu = pkgs.writeShellApplication {
     name = "pu";
-    runtimeInputs = with pkgs; [ openssh gawk ]
-      ++ lib.optional node.useSSHCA pkgs.step-cli;
-    text = self.lib.mkPUClientScript node.useSSHCA;
+    runtimeInputs = with pkgs; [ openssh gawk ];
+    text = ''
+      PU_USE_SSH_CA=false
+      export PU_USE_SSH_CA
+    '' + self.lib.mkPUClientScript;
   };
 
   puManager = pkgs.writeShellApplication {
@@ -37,6 +35,7 @@ let
 
   metadata = test-container.config.system.build.metadata;
   squashfs = test-container.config.system.build.squashfs;
+  containerToplevel = test-container.config.system.build.toplevel;
 in
 {
   name = "e2e-no-auth";
@@ -44,11 +43,10 @@ in
   nodes = {
     server = { pkgs, ... }: {
       imports = [
-        (import ../clanServices/incus/standalone.nix { useHostNixStore = false; })
-        ../nodes/idliv2-01/openssh.nix
+        ../clanServices/incus/standalone.nix
       ];
 
-      _module.args.node = node;
+      services.openssh.enable = true;
 
       virtualisation = {
         emptyDiskImages = [ 2048 ];
@@ -110,6 +108,7 @@ in
   };
 
   testScript = ''
+    # ${containerToplevel}
     start_all()
     server.wait_for_unit("incus.service")
     server.wait_for_unit("sshd.service")

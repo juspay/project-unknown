@@ -6,11 +6,6 @@
     description = "First node in an incus cluster; initializes the cluster via preseed";
     interface = { lib, ... }: {
       options = {
-        useHostNixStore = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = "Bind mount host /nix/store into containers and use Nix's local-overlay-store experimental feature";
-        };
         clusterAddress = lib.mkOption {
           type = lib.types.str;
           description = "Externally reachable address for this node (used by incus to bind and advertised in join tokens)";
@@ -76,7 +71,7 @@
           };
         in
         {
-          imports = [ (import ./standalone.nix { inherit (settings) useHostNixStore; }) ];
+          imports = [ ./standalone.nix ];
 
           programs.ssh.extraConfig = ''
             Host ssh.bitbucket.juspay.net

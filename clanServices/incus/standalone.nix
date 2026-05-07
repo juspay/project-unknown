@@ -1,4 +1,3 @@
-{ useHostNixStore ? false }:
 let
   bridgeName = "incusbr0";
   overlayStore = import ../../common/local-overlay-store.nix;
@@ -29,7 +28,7 @@ in
       profiles = [
         {
           name = "default";
-          config = lib.optionalAttrs useHostNixStore overlayStore.incusPreseedConfig;
+          config = overlayStore.incusPreseedConfig;
           devices = {
             eth0 = {
               name = "eth0";
@@ -41,7 +40,7 @@ in
               pool = "default";
               type = "disk";
             };
-          } // lib.optionalAttrs useHostNixStore overlayStore.incusPreseedDevices;
+          } // overlayStore.incusPreseedDevices;
         }
       ];
     };

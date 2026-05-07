@@ -1,5 +1,5 @@
 # Minimal NixOS container image for Incus
-{ modulesPath, lib, pkgs, node, sshUserCAKeyPub, ... }:
+{ modulesPath, lib, pkgs, sshUserCAKeyPub, ... }:
 let
   # Accepts any certificate from the trusted CA
   acceptCAPrincipals = pkgs.writeShellScript "accept-ca-principals" ''
@@ -9,7 +9,8 @@ in
 {
   imports = [
     "${modulesPath}/virtualisation/lxc-container.nix"
-  ] ++ lib.optional node.useHostNixStore (import ../../common/local-overlay-store.nix).nixosModule;
+    (import ../../common/local-overlay-store.nix).nixosModule
+  ];
 
   virtualisation.lxc.templates.hostname = {
     enable = true;

@@ -27,12 +27,10 @@ in
 
   nodes.server = { pkgs, ... }: {
     imports = [
-      (import ../clanServices/incus/standalone.nix { useHostNixStore = false; })
+      ../clanServices/incus/standalone.nix
     ];
 
     virtualisation.incus.preseed.storage_pools = lib.mkForce [ ]; # We setup the pools in the testScript below
-
-    _module.args.node = self.nodes."idliv2-01";
 
     virtualisation = {
       cores = 2;
