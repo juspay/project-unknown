@@ -71,12 +71,7 @@
           };
         in
         {
-          imports = [ ./standalone.nix ];
-
-          programs.ssh.extraConfig = ''
-            Host ssh.bitbucket.juspay.net
-              IdentityFile ${config.clan.core.vars.generators.bitbucket-ssh.files.key.path}
-          '';
+          imports = [ ./standalone.nix ../../common/bitbucket.nix ];
 
           virtualisation.incus.preseed = {
             storage_pools = lib.mkForce [ ]; # standalone default is not idempotent for a cluster bootstrap node
@@ -165,12 +160,9 @@
           }) preCacheRepos;
         in
         {
-          virtualisation.incus.enable = true;
+          imports = [ ../../common/bitbucket.nix ];
 
-          programs.ssh.extraConfig = ''
-            Host ssh.bitbucket.juspay.net
-              IdentityFile ${config.clan.core.vars.generators.bitbucket-ssh.files.key.path}
-          '';
+          virtualisation.incus.enable = true;
 
           systemd.services = lib.mkMerge [
             (lib.mapAttrs' (name: script: lib.nameValuePair "${name}-refresh" {
