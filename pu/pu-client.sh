@@ -6,7 +6,7 @@ PU_ADMIN="${PU_ADMIN:-toor}"
 PU_USE_SSH_CA="${PU_USE_SSH_CA:-true}"
 STEP_FINGERPRINT="${STEP_FINGERPRINT:-76bb5cab2458b5331221da3cc6754102189a03184d119b26ce5284b49fa06463}"
 STEP_CA_URL="${STEP_CA_URL:-https://${PU_HOST}:8443}"
-STEP_PROVISIONER="${STEP_PROVISIONER:-me@shivaraj-bh.in}"
+STEP_PROVISIONER="${STEP_PROVISIONER:-Google}"
 export STEP_FINGERPRINT STEP_CA_URL STEP_PROVISIONER
 
 PU_STATE_DIR="${PU_STATE_DIR:-$HOME/.pu-state}"
@@ -32,7 +32,7 @@ client_auth_init() {
 
   if [ ! -f "$PU_STATE_DIR/key-cert.pub" ] || step ssh needs-renewal "$PU_STATE_DIR/key-cert.pub" --expires-in 75% 2>/dev/null; then
     echo "Signing SSH key..." >&2
-    step ssh certificate --force --no-agent --no-password --insecure me "$PU_STATE_DIR/key"
+    step ssh certificate --force --no-agent --no-password --insecure --provisioner "$STEP_PROVISIONER" me "$PU_STATE_DIR/key"
   fi
 
   _pu_instance_ssh_opts=("${_pu_mac_opts[@]}" -i "$PU_STATE_DIR/key" -o "CertificateFile=$PU_STATE_DIR/key-cert.pub" -o IdentitiesOnly=yes)
