@@ -11,6 +11,22 @@ export STEP_FINGERPRINT STEP_CA_URL
 PU_STATE_DIR="${PU_STATE_DIR:-$HOME/.pu-state}"
 mkdir -p "$PU_STATE_DIR"
 
+require_step_cli() {
+  if [ "${PU_USE_SSH_CA:-}" = "true" ] && ! command -v step >/dev/null 2>&1; then
+    echo "step-cli is not installed." >&2
+    echo "Install from: https://smallstep.com/docs/step-cli/installation/" >&2
+    exit 1
+  fi
+}
+
+pu_version() {
+  echo "GNU bash, version $BASH_VERSION"
+  ssh -V 2>&1
+  [ "${PU_USE_SSH_CA:-}" = "true" ] && step version | head -1
+}
+
+require_step_cli
+
 client_auth_init() {
   _pu_instance_ssh_opts=()
   _pu_mac_opts=(-o "MACs=hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com")
@@ -141,16 +157,18 @@ pu_connect() {
   local proxy_cmd
   proxy_cmd=$(pu_proxy_command "$name")
 
+  # bash 3.2 (default on macOS) errors on empty "${arr[@]}" under `set -u`.
+  # Guard with ${arr[@]+"${arr[@]}"} so each array expands to nothing when empty.
   exec ssh \
-    "${_pu_instance_ssh_opts[@]}" \
-    "${ssh_args[@]}" \
+    ${_pu_instance_ssh_opts[@]+"${_pu_instance_ssh_opts[@]}"} \
+    ${ssh_args[@]+"${ssh_args[@]}"} \
     -o "ProxyCommand=$proxy_cmd" \
     -o ForwardAgent=yes \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
     -l "$PU_ADMIN" \
     -- "$name" \
-    "${remote_cmd[@]}"
+    ${remote_cmd[@]+"${remote_cmd[@]}"}
 }
 
 pu_destroy() {
@@ -201,6 +219,10 @@ case "$cmd" in
     pu_ssh "list"
     ;;
 
+  version)
+    pu_version
+    ;;
+
   *)
     cat >&2 <<'EOF'
 Usage: pu <command>
@@ -211,6 +233,7 @@ Commands:
   connect <name> [ssh args ...]    Connect to an instance via ssh; use -- before a remote command
   destroy <name> [name ...]        Destroy one or more instances
   list                             List your instances
+  version                          Print bash, ssh, and step-cli versions
 EOF
     exit 1
     ;;
