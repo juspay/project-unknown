@@ -153,6 +153,22 @@ pu_connect() {
     "${remote_cmd[@]}"
 }
 
+pu_destroy() {
+  [ $# -eq 0 ] && {
+    echo "Usage: pu destroy <name> [name ...]" >&2
+    exit 1
+  }
+
+  client_auth_init
+
+  local name
+  pu_ssh destroy "$@"
+
+  for name in "$@"; do
+    rm -rf "${PU_STATE_DIR:?}/$name"
+  done
+}
+
 cmd="${1:-}"
 
 case "$cmd" in
@@ -176,11 +192,8 @@ case "$cmd" in
     ;;
 
   destroy)
-    name="${2:-}"
-    [ -z "$name" ] && { echo "Usage: pu destroy <name>" >&2; exit 1; }
-    client_auth_init
-    pu_ssh "destroy $name"
-    rm -rf "${PU_STATE_DIR:?}/$name"
+    shift
+    pu_destroy "$@"
     ;;
 
   list)
@@ -196,7 +209,7 @@ Commands:
   create [name]                    Create instance and print a pu connect command
   fork <source> [name]             Fork an existing instance and print a pu connect command
   connect <name> [ssh args ...]    Connect to an instance via ssh; use -- before a remote command
-  destroy <name>                   Destroy an instance
+  destroy <name> [name ...]        Destroy one or more instances
   list                             List your instances
 EOF
     exit 1
