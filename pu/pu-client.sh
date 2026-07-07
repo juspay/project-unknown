@@ -80,6 +80,9 @@ write_ssh_config() {
   local proxy_cmd
   proxy_cmd=$(pu_proxy_command "$name")
 
+  local existed=0
+  [ -f "$dir/ssh_config" ] && existed=1
+
   {
     echo "Host $name"
     echo "  User $PU_ADMIN"
@@ -93,6 +96,12 @@ write_ssh_config() {
     echo "  StrictHostKeyChecking no"
     echo "  UserKnownHostsFile /dev/null"
   } > "$dir/ssh_config"
+
+  if [ "$existed" = "1" ]; then
+    echo "↻ ssh_config: $dir/ssh_config (rewrote)" >&2
+  else
+    echo "✔ ssh_config: $dir/ssh_config" >&2
+  fi
 }
 
 pu_launch() {
@@ -101,9 +110,10 @@ pu_launch() {
   echo "$label..." >&2
   local result name
   result=$(pu_ssh "$cmd")
-  name=$(awk '/^OK/ {print $2}' <<< "$result")
+  name=$(printf '%s\n' "$result" | tr -d '\r' | awk '/(^| )OK / {print $NF; exit}')
   if [ -z "$name" ]; then
-    echo "$result" >&2
+    echo "pu: server did not return 'OK <name>'; captured (${#result} bytes):" >&2
+    printf '%q\n' "$result" >&2
     exit 1
   fi
   echo "Waiting for instance to be ready..." >&2
@@ -154,6 +164,10 @@ pu_connect() {
 
   client_auth_init
 
+  if [ ! -f "$PU_STATE_DIR/$name/ssh_config" ]; then
+    write_ssh_config "$name"
+  fi
+
   local proxy_cmd
   proxy_cmd=$(pu_proxy_command "$name")
 
@@ -169,6 +183,15 @@ pu_connect() {
     -l "$PU_ADMIN" \
     -- "$name" \
     ${remote_cmd[@]+"${remote_cmd[@]}"}
+}
+
+pu_config() {
+  local name="${1:-}"
+  [ -z "$name" ] && {
+    echo "Usage: pu config <name>" >&2
+    exit 1
+  }
+  write_ssh_config "$name"
 }
 
 pu_destroy() {
@@ -209,6 +232,11 @@ case "$cmd" in
     pu_connect "$@"
     ;;
 
+  config)
+    shift
+    pu_config "$@"
+    ;;
+
   destroy)
     shift
     pu_destroy "$@"
@@ -231,6 +259,7 @@ Commands:
   create [name]                    Create instance and print a pu connect command
   fork <source> [name]             Fork an existing instance and print a pu connect command
   connect <name> [ssh args ...]    Connect to an instance via ssh; use -- before a remote command
+  config <name>                    (Re)write ~/.pu-state/<name>/ssh_config from current PU_HOST
   destroy <name> [name ...]        Destroy one or more instances
   list                             List your instances
   version                          Print bash, ssh, and step-cli versions
