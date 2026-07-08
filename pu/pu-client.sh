@@ -6,6 +6,7 @@ PU_ADMIN="${PU_ADMIN:-toor}"
 PU_USE_SSH_CA="${PU_USE_SSH_CA:-true}"
 STEP_FINGERPRINT="${STEP_FINGERPRINT:-76bb5cab2458b5331221da3cc6754102189a03184d119b26ce5284b49fa06463}"
 STEP_CA_URL="${STEP_CA_URL:-https://${PU_HOST}:8443}"
+CLI_NAME="${0##*/}"
 export STEP_FINGERPRINT STEP_CA_URL
 
 PU_STATE_DIR="${PU_STATE_DIR:-$HOME/.pu-state}"
@@ -108,7 +109,7 @@ pu_launch() {
 
 pu_create() {
   [ $# -eq 1 ] || {
-    echo "Usage: pu create <name>" >&2
+    echo "Usage: $CLI_NAME create <name>" >&2
     exit 1
   }
   local name="$1"
@@ -117,7 +118,7 @@ pu_create() {
 
 pu_fork() {
   [ $# -eq 2 ] || {
-    echo "Usage: pu fork <source> <name>" >&2
+    echo "Usage: $CLI_NAME fork <source> <name>" >&2
     exit 1
   }
   local source="$1" name="$2"
@@ -127,7 +128,7 @@ pu_fork() {
 pu_connect() {
   local name="${1:-}"
   [ -z "$name" ] && {
-    echo "Usage: pu connect <name> [ssh options ...] [-- remote command ...]" >&2
+    echo "Usage: $CLI_NAME connect <name> [ssh options ...] [-- remote command ...]" >&2
     exit 1
   }
   shift
@@ -174,7 +175,7 @@ pu_connect() {
 
 pu_destroy() {
   [ $# -eq 0 ] && {
-    echo "Usage: pu destroy <name> [name ...]" >&2
+    echo "Usage: $CLI_NAME destroy <name> [name ...]" >&2
     exit 1
   }
 
@@ -195,14 +196,14 @@ case "$cmd" in
     shift
     name="${1:-}"
     pu_create "$@"
-    echo "Connect: pu connect $name" >&2
+    echo "Connect: $CLI_NAME connect $name" >&2
     ;;
 
   fork)
     shift
     name="${2:-}"
     pu_fork "$@"
-    echo "Connect: pu connect $name" >&2
+    echo "Connect: $CLI_NAME connect $name" >&2
     ;;
 
   connect)
@@ -225,12 +226,12 @@ case "$cmd" in
     ;;
 
   *)
-    cat >&2 <<'EOF'
-Usage: pu <command>
+    cat >&2 <<EOF
+Usage: $CLI_NAME <command>
 
 Commands:
-  create <name>                    Create instance and print a pu connect command
-  fork <source> <name>             Fork an existing instance and print a pu connect command
+  create <name>                    Create instance and print a $CLI_NAME connect command
+  fork <source> <name>             Fork an existing instance and print a $CLI_NAME connect command
   connect <name> [ssh args ...]    Connect to an instance via ssh; use -- before a remote command
   destroy <name> [name ...]        Destroy one or more instances
   list                             List your instances

@@ -1,0 +1,36 @@
+name: Nix
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check flake
+        run: nix flake check --print-build-logs
+
+      - name: Build package
+        run: nix build .#default --print-build-logs
+
+      - name: Verify CLI names
+        run: |
+          nix run . -- version
+          nix shell .#default -c bash -euo pipefail -c 'command -v xyne-boxes; command -v pu; xyne-boxes version; pu version'
