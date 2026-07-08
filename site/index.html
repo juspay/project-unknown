@@ -176,10 +176,14 @@
     <!-- SETUP -->
     <section id="setup"><div class="pad">
       <div class="kicker"><span class="n">01</span>SETUP · ONE TIME</div>
-      <h2>Get on<br>the network</h2>
-      <p class="sub">Boxes live behind a private Tailscale network. You only do this once per machine.</p>
+      <h2>Get<br>set up</h2>
+      <p class="sub">A few one-time steps per machine: install Nix, then get on the private Tailscale network.</p>
       <div class="steps">
         <div class="step"><div class="sn">1</div><div class="sc">
+          <h3>Install Nix</h3>
+          <p>xyne-boxes runs entirely through <a class="link" href="https://nixos.org">Nix</a>, so you need it first. Don't have it yet? Install it in one step with <a class="link" href="https://juspay.github.io/nixone/">nixone</a>.</p>
+        </div></div>
+        <div class="step"><div class="sn">2</div><div class="sc">
           <h3>Install Tailscale</h3>
           <p>Grab the app from the <a class="link" href="https://apps.apple.com/ca/app/tailscale/id1475387142?mt=12">Mac App Store</a>. Then check the CLI works — <code>tailscale --help</code> should print something.</p>
           <details class="disc">
@@ -198,7 +202,7 @@ chmod +x /usr/local/bin/tailscale</code></pre>
             </div>
           </details>
         </div></div>
-        <div class="step"><div class="sn">2</div><div class="sc">
+        <div class="step"><div class="sn">3</div><div class="sc">
           <h3>Join the network</h3>
           <p>Connect your machine to the VPN. A browser window opens for you to sign in.</p>
           <div class="snip">
