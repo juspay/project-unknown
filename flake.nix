@@ -13,12 +13,20 @@
         in
         {
           default = pkgs.writeShellApplication {
-            name = "pu";
+            name = "xyne-boxes";
             runtimeInputs = with pkgs; [
               openssh
               step-cli
             ];
             text = builtins.readFile ./pu/pu-client.sh;
+            meta = {
+              description = "CLI for xyne-boxes";
+              mainProgram = "xyne-boxes";
+            };
+            derivationArgs.postCheck = ''
+              # Backwards compatibility for users with the old CLI name.
+              ln -s xyne-boxes "$out/bin/pu"
+            '';
           };
         });
     };
