@@ -1,39 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="xyne-boxes — remote dev boxes, one SSH away">
   <defs>
-    <filter id="grain" x="0" y="0" width="100%" height="100%">
-      <feTurbulence baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
-      <feColorMatrix values="0 0 0 0 0.08  0 0 0 0 0.07  0 0 0 0 0.05  0 0 0 0.14 0"/>
-    </filter>
+    <radialGradient id="glow" cx="18%" cy="12%" r="70%">
+      <stop offset="0%" stop-color="#3ce0c0" stop-opacity="0.20"/>
+      <stop offset="60%" stop-color="#3ce0c0" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1.5" fill="#ffffff" fill-opacity="0.05"/>
+    </pattern>
   </defs>
 
-  <rect width="1200" height="630" fill="#f1ebdd"/>
+  <rect width="1200" height="630" fill="#0a0d12"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
 
-  <!-- hairline grid -->
-  <g stroke="#141210" stroke-opacity="0.045" stroke-width="1">
-    <line x1="300" y1="0" x2="300" y2="630"/>
-    <line x1="600" y1="0" x2="600" y2="630"/>
-    <line x1="900" y1="0" x2="900" y2="630"/>
-  </g>
+  <!-- top meta -->
+  <text x="72" y="80" font-family="'JetBrains Mono', ui-monospace, Menlo, monospace" font-size="15" letter-spacing="3" fill="#6d7a8b">XYNE-BOXES &#160;&#183;&#160; INCUS &#160;&#183;&#160; TAILSCALE &#160;&#183;&#160; SSH CERTS</text>
+  <line x1="72" y1="104" x2="1128" y2="104" stroke="#ffffff" stroke-opacity="0.08"/>
 
-  <!-- paper grain -->
-  <rect width="1200" height="630" filter="url(#grain)" opacity="0.4" style="mix-blend-mode:multiply"/>
+  <!-- brand glyph -->
+  <rect x="72" y="188" width="66" height="66" rx="14" fill="none" stroke="#3ce0c0" stroke-width="2"/>
+  <text x="105" y="238" text-anchor="middle" font-family="'JetBrains Mono', ui-monospace, Menlo, monospace" font-weight="700" font-size="40" fill="#3ce0c0">x</text>
+  <text x="160" y="238" font-family="'JetBrains Mono', ui-monospace, Menlo, monospace" font-size="26" letter-spacing="4" fill="#3ce0c0">INCUS DEV BOXES OVER TAILSCALE</text>
 
-  <!-- masthead rule + meta -->
-  <line x1="72" y1="96" x2="1128" y2="96" stroke="#141210" stroke-width="1"/>
-  <text x="72" y="76" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" letter-spacing="2.4" fill="#6b5f52">XYNE-BOXES &#160;&#183;&#160; VOL. 01 &#160;&#183;&#160; REMOTE DEV BOXES &#160;&#183;&#160; RUNTIME SSH</text>
+  <!-- headline -->
+  <text x="70" y="400" font-family="'Space Grotesk', ui-sans-serif, system-ui, sans-serif" font-weight="600" font-size="118" letter-spacing="-4" fill="#e9eff6">Spin up a box.</text>
+  <text x="70" y="518" font-family="'Space Grotesk', ui-sans-serif, system-ui, sans-serif" font-weight="600" font-size="118" letter-spacing="-4"><tspan fill="#3ce0c0">SSH</tspan><tspan fill="#6d7a8b"> straight in.</tspan></text>
 
-  <!-- eyebrow -->
-  <line x1="72" y1="196" x2="112" y2="196" stroke="#c14a1b" stroke-width="1"/>
-  <text x="128" y="201" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" letter-spacing="4" fill="#c14a1b">REMOTE DEV BOXES OVER TAILSCALE</text>
-
-  <!-- wordmark -->
-  <text x="72" y="420" font-family="'Fraunces', 'Times New Roman', Georgia, serif" font-style="italic" font-weight="400" font-size="196" letter-spacing="-6" fill="#141210">xyne<tspan fill="#c14a1b">-boxes</tspan></text>
-
-  <!-- lead -->
-  <text x="76" y="488" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22" fill="#2a2520">A remote box, one command away.</text>
-
-  <!-- bottom rule + meta -->
-  <line x1="72" y1="548" x2="1128" y2="548" stroke="#141210" stroke-width="1"/>
-  <text x="72" y="580" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="2.8" fill="#6b5f52">JUSPAY &#160;/&#160; XYNE-BOXES</text>
-  <text x="1128" y="580" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="2.8" fill="#6b5f52">&#167; 01</text>
+  <!-- bottom meta -->
+  <line x1="72" y1="556" x2="1128" y2="556" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text x="72" y="592" font-family="'JetBrains Mono', ui-monospace, Menlo, monospace" font-size="13" letter-spacing="3" fill="#6d7a8b">JUSPAY &#160;/&#160; XYNE-BOXES</text>
+  <text x="1128" y="592" text-anchor="end" font-family="'JetBrains Mono', ui-monospace, Menlo, monospace" font-size="13" letter-spacing="3" fill="#6d7a8b">github.com/juspay/xyne-boxes</text>
 </svg>
