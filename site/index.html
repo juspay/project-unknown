@@ -267,6 +267,20 @@
       }
       .callout strong { color: var(--text-soft); font-weight: 600; }
 
+      /* what you get */
+      .whatgrid { display: grid; gap: 14px; grid-template-columns: repeat(2, 1fr); }
+      .whatcard {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent);
+        border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px;
+      }
+      .whatcard h4 {
+        align-items: center; display: flex; font-size: 15px; font-weight: 600; gap: 9px; margin: 0 0 7px;
+      }
+      .whatcard h4 .d { background: var(--accent); border-radius: 2px; box-shadow: 0 0 8px 0 var(--accent); height: 7px; width: 7px; }
+      .whatcard p { color: var(--text-soft); font-size: 13.5px; line-height: 1.6; margin: 0; }
+      .whatcard p code { white-space: nowrap; }
+      @media (max-width: 640px) { .whatgrid { grid-template-columns: 1fr; } }
+
       /* renew */
       .err {
         background: var(--console); border: 1px solid rgba(255, 138, 122, 0.28);
@@ -310,6 +324,7 @@
       <nav class="nav">
         <a href="#setup">Setup</a>
         <a href="#connect">Connect</a>
+        <a href="#box">The box</a>
         <a href="#certs">Certificates</a>
         <a href="https://github.com/juspay/xyne-boxes">GitHub ↗</a>
       </nav>
@@ -353,7 +368,7 @@
             <div class="step-body">
               <p>Grab the app from the <a href="https://apps.apple.com/ca/app/tailscale/id1475387142?mt=12">Mac App Store</a>. Then open a terminal and check that the CLI works — running <code>tailscale --help</code> should print something.</p>
               <details class="disc">
-                <summary>Terminal says <code>tailscale: command not found</code>?</summary>
+                <summary><span>Terminal says <code>tailscale: command not found</code>?</span></summary>
                 <div class="disc-body">
                   <p>The app doesn't always add the CLI to your <code>PATH</code>. Paste this once to create a small wrapper that points at the app:</p>
                   <div class="snippet">
@@ -403,7 +418,8 @@ chmod +x /usr/local/bin/tailscale</code></pre>
             <div class="step-n">1</div>
             <div class="step-h"><h3>Create it</h3></div>
             <div class="step-body">
-              <p>Swap <code>&lt;name&gt;</code> for whatever you want to call the box. The first time, you'll sign in with your Juspay Google account — same as onboarding.</p>
+              <p>Pick any name for your box. This builds a fresh Linux container with a ready-to-go dev environment inside.</p>
+              <p>The <strong>first time</strong> you run it — and roughly once a week after — you'll be asked to sign in: the terminal prints a link and a short code. Open <a href="https://www.google.com/device">google.com/device</a>, enter the code, and sign in with your <strong>Juspay Google account</strong>. That's what grants your SSH access — there are no keys to manage.</p>
               <div class="snippet">
                 <div class="snippet-main">
                   <pre><span class="prompt">$</span><code id="cmd-create">nix run github:juspay/xyne-boxes create &lt;name&gt;</code></pre>
@@ -420,7 +436,7 @@ chmod +x /usr/local/bin/tailscale</code></pre>
             <div class="step-n">2</div>
             <div class="step-h"><h3>Jump in</h3></div>
             <div class="step-body">
-              <p>That's it — this drops you into a shell on the box.</p>
+              <p>That's it — this drops you into a shell on the box as the <code>toor</code> user.</p>
               <div class="snippet">
                 <div class="snippet-main">
                   <pre><span class="prompt">$</span><code id="cmd-connect">nix run github:juspay/xyne-boxes connect &lt;name&gt;</code></pre>
@@ -431,7 +447,7 @@ chmod +x /usr/local/bin/tailscale</code></pre>
                 </div>
               </div>
               <details class="disc">
-                <summary>Prefer to just type <code>ssh &lt;name&gt;</code>?</summary>
+                <summary><span>Prefer to just type <code>ssh &lt;name&gt;</code>?</span></summary>
                 <div class="disc-body">
                   <p>Do this once and plain <code>ssh &lt;name&gt;</code> will work for every box you create.</p>
                   <p class="sub">1 · Let SSH pick up each box's config</p>
@@ -465,49 +481,54 @@ ssh-add ~/.ssh/id_ed25519</code></pre>
         </div>
       </section>
 
+      <!-- WHAT YOU GET -->
+      <section class="section" id="box">
+        <div class="section-head">
+          <span class="tag">Inside the box</span>
+          <h2>What you get</h2>
+          <p>Every box is an Incus container cloned from a loaded base image — not a bare machine.</p>
+        </div>
+        <div class="whatgrid">
+          <div class="whatcard">
+            <h4><span class="d"></span>A real dev environment</h4>
+            <p>git, vim, tmux, htop, <code>direnv</code>, starship and more, ready to go. VS Code Remote and <code>nix-ld</code> work out of the box.</p>
+          </div>
+          <div class="whatcard">
+            <h4><span class="d"></span>Nix, already warm</h4>
+            <p>Flakes are on and the box shares the host's <code>/nix/store</code>, so <code>nix develop</code> is fast and common Juspay dev-envs are pre-cached.</p>
+          </div>
+          <div class="whatcard">
+            <h4><span class="d"></span>Yours, and it sticks around</h4>
+            <p>You land as <code>toor</code> with your own home. It survives stop/start — nothing expires on its own. It's gone only when you run <code>destroy</code>.</p>
+          </div>
+          <div class="whatcard">
+            <h4><span class="d"></span>More when you need it</h4>
+            <p><code>list</code> shows your boxes, <code>fork &lt;source&gt; &lt;name&gt;</code> clones one to branch an environment, and <code>destroy &lt;name&gt;</code> removes it.</p>
+          </div>
+        </div>
+      </section>
+
       <!-- CERTS -->
       <section class="section" id="certs">
         <div class="section-head">
           <span class="tag">Good to know</span>
-          <h2>When your login expires</h2>
-          <p>Access is granted by a certificate that lasts <strong style="color:var(--text)">one week</strong>. When it runs out, reconnecting fails with an error like this:</p>
+          <h2>When your access expires</h2>
+          <p>Your access lasts about a week. When it lapses, reconnecting fails with an error like this:</p>
         </div>
         <pre class="err">pu@pu: Permission denied (publickey,keyboard-interactive).
 Connection closed by UNKNOWN port 65535</pre>
-        <div class="step-body" style="max-width:640px;margin-top:18px">
-          <p>Nothing's broken — you just need to sign in again. It takes about 20 seconds:</p>
-        </div>
-        <div class="steps" style="margin-top:22px">
-          <article class="step">
-            <div class="step-n">1</div>
-            <div class="step-h"><h3>Run connect again</h3></div>
-            <div class="step-body">
-              <div class="snippet">
-                <div class="snippet-main">
-                  <pre><span class="prompt">$</span><code id="cmd-renew">nix run github:juspay/xyne-boxes connect</code></pre>
-                  <button type="button" class="copy" data-copy="#cmd-renew" aria-label="Copy" title="Copy">
-                    <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
-                    <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
-                  </button>
-                </div>
-              </div>
+        <div class="step-body" style="max-width:660px;margin-top:22px">
+          <p>Nothing's broken — just run <code>connect</code> again and sign in the same way you did the first time (the link-and-code Google flow). About 20 seconds, and you're good for another week.</p>
+          <div class="snippet">
+            <div class="snippet-main">
+              <pre><span class="prompt">$</span><code id="cmd-renew">nix run github:juspay/xyne-boxes connect</code></pre>
+              <button type="button" class="copy" data-copy="#cmd-renew" aria-label="Copy" title="Copy">
+                <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+                <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+              </button>
             </div>
-          </article>
-          <article class="step">
-            <div class="step-n">2</div>
-            <div class="step-h"><h3>Sign in with Google</h3></div>
-            <div class="step-body">
-              <p>The command shows a link and a short code. Open <a href="https://www.google.com/device">google.com/device</a>, enter the code, and sign in with your Juspay account.</p>
-            </div>
-          </article>
-          <article class="step">
-            <div class="step-n">3</div>
-            <div class="step-h"><h3>Back in business</h3></div>
-            <div class="step-body">
-              <p>Your access is renewed for another week — connect as usual.</p>
-              <p class="callout"><strong>Seeing a GitHub 403 error?</strong> Turn the VPN off and try again. If it keeps happening, set up a GitHub token for a higher rate limit.</p>
-            </div>
-          </article>
+          </div>
+          <p class="callout" style="margin-top:18px"><strong>Seeing a GitHub 403 error?</strong> Turn the VPN off and try again. If it keeps happening, set up a GitHub token for a higher rate limit.</p>
         </div>
       </section>
 
