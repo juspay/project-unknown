@@ -18,7 +18,7 @@ Everything you need to create and access a box lives on the
 ## Commands
 
 ```
-nix run github:juspay/xyne-boxes <command>
+nix run https://github.com/juspay/xyne-boxes/archive/main.zip <command>
 ```
 
 | Command | Description |

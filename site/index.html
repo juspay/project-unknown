@@ -103,7 +103,7 @@
       .disc[open] > summary { border-bottom: 2px solid var(--ink); }
       .disc .dbody { padding: 16px; }
       .disc .dbody > p { margin: 0 0 12px; } .disc .dbody > p:first-child { margin-top: 0; }
-      .disc .dsub { font-weight: 700; text-transform: uppercase; font-size: 12px; margin: 16px 0 6px; }
+      .disc .dbody > p.dsub { font-weight: 700; text-transform: uppercase; font-size: 12px; margin: 22px 0 6px; }
 
       .grid { display: grid; grid-template-columns: repeat(2, 1fr); border-left: 2px solid var(--ink); border-bottom: 2px solid var(--ink); }
       .card { border-right: 2px solid var(--ink); border-top: 2px solid var(--ink); padding: 26px 24px; }
@@ -223,7 +223,7 @@ chmod +x /usr/local/bin/tailscale</code></pre>
           <p>Pick any name for your box. This builds a fresh Linux container with a ready-to-go dev environment inside.</p>
           <p>The <b>first time</b> you run it — and roughly once a week after — you'll sign in: the terminal prints a link and a short code. Open <a class="link" href="https://www.google.com/device">google.com/device</a>, enter the code, and sign in with your <b>Juspay Google account</b>. That grants your SSH access — no keys to manage.</p>
           <div class="snip">
-            <pre><span class="p">$</span><code id="cmd-create">nix run github:juspay/xyne-boxes create &lt;name&gt;</code></pre>
+            <pre><span class="p">$</span><code id="cmd-create">nix run https://github.com/juspay/xyne-boxes/archive/main.zip create &lt;name&gt;</code></pre>
             <button type="button" class="copy" data-copy="#cmd-create" aria-label="Copy" title="Copy">
               <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
               <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
@@ -234,7 +234,7 @@ chmod +x /usr/local/bin/tailscale</code></pre>
           <h3>Jump in</h3>
           <p>That's it — this drops you into a shell on the box as the <code>toor</code> user.</p>
           <div class="snip">
-            <pre><span class="p">$</span><code id="cmd-connect">nix run github:juspay/xyne-boxes connect &lt;name&gt;</code></pre>
+            <pre><span class="p">$</span><code id="cmd-connect">nix run https://github.com/juspay/xyne-boxes/archive/main.zip connect &lt;name&gt;</code></pre>
             <button type="button" class="copy" data-copy="#cmd-connect" aria-label="Copy" title="Copy">
               <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
               <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
@@ -294,7 +294,7 @@ ssh-add ~/.ssh/id_ed25519</code></pre>
 Connection closed by UNKNOWN port 65535</div>
         <p style="font-family:var(--mono);font-size:13.5px;line-height:1.65;margin:16px 0">Nothing's broken — just run <code>connect</code> again and sign in the same way you did the first time. About 20 seconds, and you're good for another week.</p>
         <div class="snip">
-          <pre><span class="p">$</span><code id="cmd-renew">nix run github:juspay/xyne-boxes connect</code></pre>
+          <pre><span class="p">$</span><code id="cmd-renew">nix run https://github.com/juspay/xyne-boxes/archive/main.zip connect</code></pre>
           <button type="button" class="copy" data-copy="#cmd-renew" aria-label="Copy" title="Copy">
             <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
             <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
