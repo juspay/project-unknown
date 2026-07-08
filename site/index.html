@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>xyne-boxes — remote dev boxes, one SSH away</title>
+    <meta name="description" content="Spin up a remote development box and SSH straight in. One command creates it, Tailscale gets you on the network, and short-lived SSH certificates handle the rest.">
+    <link rel="canonical" href="https://juspay.github.io/xyne-boxes/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="xyne-boxes">
+    <meta property="og:title" content="xyne-boxes — remote dev boxes, one SSH away">
+    <meta property="og:description" content="Spin up a remote development box and SSH straight in. One command creates it, Tailscale gets you on the network, and short-lived SSH certificates handle the rest.">
+    <meta property="og:url" content="https://juspay.github.io/xyne-boxes/">
+    <meta property="og:image" content="https://juspay.github.io/xyne-boxes/og.svg">
+    <meta property="og:image:alt" content="xyne-boxes — a remote box, one command away.">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="xyne-boxes — remote dev boxes, one SSH away">
+    <meta name="twitter:description" content="Spin up a remote development box and SSH straight in. One command creates it, Tailscale gets you on the network.">
+    <meta name="twitter:image" content="https://juspay.github.io/xyne-boxes/og.svg">
+    <meta name="twitter:image:alt" content="xyne-boxes — a remote box, one command away.">
+
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f1ebdd;
+        --paper-warm: #e7dfca;
+        --ink: #141210;
+        --ink-soft: #2a2520;
+        --muted: #6b5f52;
+        --rule: #141210;
+        --accent: #c14a1b;
+        --accent-soft: #e8a77b;
+        --terminal: #141210;
+        --terminal-line: #2a2520;
+        --terminal-text: #efe6d4;
+        --terminal-accent: #f0a860;
+        --serif: "Fraunces", "Times New Roman", serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--mono);
+        font-size: 14px;
+        line-height: 1.55;
+        margin: 0;
+        min-height: 100vh;
+        overflow-x: hidden;
+        position: relative;
+      }
+
+      /* paper grain */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        mix-blend-mode: multiply;
+        opacity: 0.4;
+        z-index: 0;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.07  0 0 0 0 0.05  0 0 0 0.14 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+      }
+
+      /* hairline grid */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background-image: linear-gradient(to right, rgba(20, 18, 16, 0.045) 1px, transparent 1px);
+        background-size: 120px 120px;
+      }
+
+      main, header { position: relative; z-index: 1; }
+
+      a {
+        color: var(--ink);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+        transition: color 140ms ease;
+      }
+      a:hover { color: var(--accent); }
+
+      code {
+        font-family: var(--mono);
+        font-size: inherit;
+      }
+
+      /* masthead */
+      .masthead {
+        align-items: center;
+        border-bottom: 1px solid var(--rule);
+        display: grid;
+        font-size: 11px;
+        gap: 20px;
+        grid-template-columns: auto 1fr auto;
+        letter-spacing: 0.14em;
+        padding: 14px 28px;
+        text-transform: uppercase;
+      }
+
+      .mast-mark {
+        font-family: var(--serif);
+        font-size: 26px;
+        font-style: italic;
+        font-variation-settings: "SOFT" 100, "opsz" 144;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        line-height: 1;
+        text-transform: none;
+      }
+
+      .mast-meta {
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 22px;
+      }
+      .mast-meta strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .mast-links {
+        display: flex;
+        gap: 18px;
+      }
+      .mast-links a {
+        border-bottom: 1px solid transparent;
+        color: var(--ink);
+        padding-bottom: 2px;
+        text-decoration: none;
+      }
+      .mast-links a:hover {
+        border-bottom-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .page {
+        margin: 0 auto;
+        max-width: 1200px;
+        padding: 0 28px 72px;
+      }
+
+      section {
+        position: relative;
+      }
+
+      .section-number {
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.22em;
+        position: absolute;
+        right: 0;
+        top: 22px;
+      }
+
+      /* hero */
+      .hero {
+        border-bottom: 1px solid var(--rule);
+        padding: 56px 0 52px;
+      }
+
+      .eyebrow {
+        align-items: center;
+        color: var(--accent);
+        display: inline-flex;
+        font-size: 11px;
+        gap: 12px;
+        letter-spacing: 0.28em;
+        margin-bottom: 26px;
+        text-transform: uppercase;
+      }
+      .eyebrow::before {
+        background: var(--accent);
+        content: "";
+        display: inline-block;
+        height: 1px;
+        width: 32px;
+      }
+
+      h1.display {
+        color: var(--ink);
+        font-family: var(--serif);
+        font-size: clamp(52px, 10vw, 150px);
+        font-variation-settings: "SOFT" 30, "opsz" 144;
+        font-weight: 400;
+        letter-spacing: -0.035em;
+        line-height: 0.88;
+        margin: 0;
+      }
+
+      h1.display em {
+        color: var(--accent);
+        font-style: italic;
+        font-variation-settings: "SOFT" 100, "opsz" 144;
+        font-weight: 300;
+        letter-spacing: -0.04em;
+      }
+
+      .lead-row {
+        align-items: end;
+        display: grid;
+        gap: 48px;
+        grid-template-columns: 1fr minmax(260px, 380px);
+        margin-top: 52px;
+      }
+
+      .lead {
+        color: var(--ink-soft);
+        font-family: var(--mono);
+        font-size: 16px;
+        line-height: 1.55;
+        margin: 0;
+        max-width: 540px;
+      }
+      .lead strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .facts {
+        border-top: 1px solid var(--rule);
+        display: grid;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .facts li {
+        border-bottom: 1px solid rgba(20, 18, 16, 0.22);
+        display: grid;
+        font-size: 12px;
+        gap: 14px;
+        grid-template-columns: 88px 1fr;
+        padding: 10px 0;
+      }
+      .facts .k {
+        color: var(--muted);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .facts .v { color: var(--ink); }
+      .facts .v code {
+        background: rgba(193, 74, 27, 0.1);
+        border-radius: 2px;
+        color: var(--accent);
+        padding: 1px 5px;
+      }
+
+      /* two-column block */
+      .block {
+        border-bottom: 1px solid var(--rule);
+        display: grid;
+        gap: 48px;
+        grid-template-columns: minmax(200px, 0.32fr) minmax(0, 1fr);
+        padding: 52px 0;
+      }
+
+      .section-kicker {
+        color: var(--ink);
+        font-family: var(--serif);
+        font-size: clamp(30px, 3.4vw, 40px);
+        font-style: italic;
+        font-variation-settings: "SOFT" 100, "opsz" 144;
+        font-weight: 400;
+        letter-spacing: -0.01em;
+        line-height: 1;
+        margin: 0;
+      }
+      .section-kicker-sub {
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.22em;
+        margin: 10px 0 0;
+        text-transform: uppercase;
+      }
+
+      .prose {
+        display: grid;
+        gap: 18px;
+      }
+      .prose p {
+        color: var(--ink-soft);
+        font-size: 14px;
+        margin: 0;
+      }
+      .prose a {
+        color: var(--accent);
+        text-decoration-thickness: 1px;
+      }
+      .prose code {
+        background: var(--paper-warm);
+        border: 1px solid rgba(20, 18, 16, 0.14);
+        border-radius: 3px;
+        color: var(--ink);
+        font-size: 12.5px;
+        padding: 1px 6px;
+      }
+
+      /* terminal */
+      .terminal {
+        background: var(--terminal);
+        border-radius: 8px;
+        box-shadow: 0 30px 80px -30px rgba(20, 18, 16, 0.5);
+        color: var(--terminal-text);
+        overflow: hidden;
+        position: relative;
+      }
+      .terminal + .terminal { margin-top: 14px; }
+      .terminal::after {
+        background: repeating-linear-gradient(
+          to bottom,
+          transparent 0 3px,
+          rgba(255, 255, 255, 0.016) 3px 4px
+        );
+        content: "";
+        inset: 0;
+        pointer-events: none;
+        position: absolute;
+      }
+
+      .terminal-top {
+        align-items: center;
+        background: rgba(255, 255, 255, 0.02);
+        border-bottom: 1px solid var(--terminal-line);
+        color: rgba(239, 230, 212, 0.55);
+        display: flex;
+        font-size: 11px;
+        justify-content: space-between;
+        letter-spacing: 0.18em;
+        padding: 10px 14px;
+        text-transform: uppercase;
+      }
+      .terminal-dots { display: flex; gap: 7px; }
+      .terminal-dots span {
+        background: rgba(239, 230, 212, 0.16);
+        border-radius: 50%;
+        height: 10px;
+        width: 10px;
+      }
+      .terminal-dots span:nth-child(1) { background: #c14a1b; }
+      .terminal-dots span:nth-child(2) { background: #d6a44a; }
+      .terminal-dots span:nth-child(3) { background: #7fa84a; }
+
+      .terminal-body {
+        align-items: center;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        padding: 16px 16px 16px 20px;
+      }
+      .terminal-body pre {
+        color: var(--terminal-text);
+        font-family: var(--mono);
+        font-size: 14px;
+        margin: 0;
+        overflow: visible;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .terminal-body .prompt {
+        color: var(--terminal-accent);
+        margin-right: 10px;
+      }
+
+      button.copy {
+        align-items: center;
+        align-self: start;
+        background: transparent;
+        border: 1px solid rgba(239, 230, 212, 0.2);
+        border-radius: 4px;
+        color: var(--terminal-text);
+        cursor: pointer;
+        display: inline-flex;
+        font: inherit;
+        height: 36px;
+        justify-content: center;
+        transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+        width: 36px;
+      }
+      button.copy:hover {
+        background: rgba(240, 168, 96, 0.12);
+        border-color: var(--terminal-accent);
+        color: var(--terminal-accent);
+      }
+      button.copy svg { height: 16px; width: 16px; }
+      button.copy .check-icon { display: none; }
+      button.copy.copied {
+        border-color: var(--terminal-accent);
+        color: var(--terminal-accent);
+      }
+      button.copy.copied .copy-icon { display: none; }
+      button.copy.copied .check-icon { display: block; }
+
+      /* workflow */
+      .steps { display: grid; }
+      .step {
+        border-top: 1px solid rgba(20, 18, 16, 0.22);
+        display: grid;
+        gap: 20px;
+        grid-template-columns: 52px 150px minmax(0, 1fr);
+        padding: 26px 0;
+      }
+      .step:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+      .step:last-child { padding-bottom: 0; }
+
+      .step-n {
+        color: var(--accent);
+        font-family: var(--serif);
+        font-size: 38px;
+        font-style: italic;
+        font-variation-settings: "SOFT" 100, "opsz" 144;
+        font-weight: 300;
+        letter-spacing: -0.01em;
+        line-height: 0.9;
+      }
+      .step-title {
+        font-family: var(--serif);
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        line-height: 1.1;
+        margin: 0;
+      }
+      .step-tag {
+        color: var(--accent);
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        margin-top: 8px;
+        text-transform: uppercase;
+      }
+      .step-desc {
+        color: var(--ink-soft);
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+      .step-desc > p { margin: 0 0 12px; }
+      .step-desc > p:last-child { margin-bottom: 0; }
+      .step-desc code {
+        background: var(--paper-warm);
+        border: 1px solid rgba(20, 18, 16, 0.14);
+        border-radius: 3px;
+        color: var(--ink);
+        font-size: 12.5px;
+        padding: 1px 6px;
+      }
+      .step-desc ul {
+        display: grid;
+        gap: 6px;
+        margin: 0 0 12px;
+        padding-left: 18px;
+      }
+      .step-desc a { color: var(--accent); }
+      .step-desc strong { color: var(--ink); }
+
+      /* faq */
+      details {
+        border-top: 1px solid rgba(20, 18, 16, 0.22);
+        padding: 16px 0;
+      }
+      details:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+      details[open] { padding-bottom: 18px; }
+      summary {
+        align-items: center;
+        cursor: pointer;
+        display: flex;
+        font-family: var(--serif);
+        font-size: 19px;
+        font-weight: 500;
+        gap: 16px;
+        justify-content: space-between;
+        letter-spacing: -0.005em;
+        list-style: none;
+      }
+      summary::-webkit-details-marker { display: none; }
+      summary code {
+        background: var(--paper-warm);
+        border: 1px solid rgba(20, 18, 16, 0.14);
+        border-radius: 3px;
+        font-size: 14px;
+        padding: 1px 5px;
+      }
+      summary::after {
+        color: var(--accent);
+        content: "+";
+        font-family: var(--mono);
+        font-size: 22px;
+        line-height: 1;
+        transition: transform 180ms ease;
+      }
+      details[open] summary::after { content: "−"; }
+      details .answer {
+        color: var(--ink-soft);
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.65;
+        margin: 10px 0 0;
+        max-width: 720px;
+      }
+      details .answer p { margin: 10px 0 0; }
+      details .answer p:first-child { margin-top: 0; }
+      details .answer ol { margin: 10px 0 0; padding-left: 20px; }
+      details .answer li { margin-top: 4px; }
+      details code {
+        background: var(--paper-warm);
+        border: 1px solid rgba(20, 18, 16, 0.14);
+        border-radius: 3px;
+        font-size: 12.5px;
+        padding: 1px 5px;
+      }
+      details a { color: var(--accent); }
+      .callout {
+        border-left: 2px solid var(--accent-soft);
+        color: var(--muted);
+        margin-top: 12px;
+        padding: 2px 0 2px 14px;
+      }
+      .err {
+        background: var(--terminal);
+        border-radius: 6px;
+        color: #e79a8a;
+        display: block;
+        font-size: 12.5px;
+        line-height: 1.5;
+        margin-top: 12px;
+        padding: 12px 14px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      /* footer */
+      footer {
+        align-items: center;
+        border-top: 1px solid var(--rule);
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 11px;
+        gap: 16px;
+        justify-content: space-between;
+        letter-spacing: 0.2em;
+        margin-top: 52px;
+        padding-top: 22px;
+        text-transform: uppercase;
+      }
+      footer a {
+        border-bottom: 1px solid var(--rule);
+        color: var(--ink);
+        padding-bottom: 2px;
+        text-decoration: none;
+      }
+      footer a:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* staggered reveal */
+      .reveal {
+        animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.1, 1) forwards;
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      .reveal-1 { animation-delay: 0.05s; }
+      .reveal-2 { animation-delay: 0.16s; }
+      .reveal-3 { animation-delay: 0.28s; }
+      .reveal-4 { animation-delay: 0.40s; }
+      @keyframes rise {
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reveal { animation: none; opacity: 1; transform: none; }
+      }
+
+      @media (max-width: 860px) {
+        .masthead {
+          gap: 10px;
+          grid-template-columns: 1fr;
+          padding: 14px 18px;
+        }
+        .mast-meta { font-size: 10px; gap: 12px; }
+        .page { padding: 0 18px 56px; }
+        .hero { padding: 40px 0 36px; }
+        .section-number { display: none; }
+        .lead-row { gap: 28px; grid-template-columns: 1fr; margin-top: 34px; }
+        .block { gap: 24px; grid-template-columns: 1fr; padding: 40px 0; }
+        .step {
+          gap: 8px 14px;
+          grid-template-columns: 44px 1fr;
+          padding: 22px 0;
+        }
+        .step-n { font-size: 30px; grid-row: span 3; }
+        .step-title { grid-column: 2; }
+        .step-tag { grid-column: 2; }
+        .step-desc { grid-column: 2; }
+        .terminal-body pre { font-size: 12.5px; }
+        .terminal-top { font-size: 10px; letter-spacing: 0.14em; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="mast-mark">xyne-boxes</div>
+      <div class="mast-meta">
+        <span><strong>Vol. 01</strong> · Remote dev boxes</span>
+        <span><strong>Network</strong> · Tailscale</span>
+        <span><strong>Auth</strong> · SSH certificates</span>
+      </div>
+      <nav class="mast-links">
+        <a href="https://github.com/juspay/xyne-boxes">GitHub</a>
+        <a href="#access">Access</a>
+        <a href="#renew">Renew cert</a>
+      </nav>
+    </header>
+
+    <main class="page">
+      <section class="hero">
+        <span class="section-number">§ 01</span>
+        <span class="eyebrow reveal reveal-1">Remote dev boxes over Tailscale</span>
+        <h1 class="display reveal reveal-2">A remote box,<br><em>one SSH away.</em></h1>
+        <div class="lead-row">
+          <p class="lead reveal reveal-3">
+            <strong>xyne-boxes</strong> spins up a fresh development box and drops
+            you straight into it. One command creates the box, Tailscale puts you on
+            the network, and short-lived SSH certificates handle the login — no keys
+            to copy, nothing to configure by hand.
+          </p>
+          <ul class="facts reveal reveal-4">
+            <li><span class="k">Create</span><span class="v"><code>nix run github:juspay/xyne-boxes create</code></span></li>
+            <li><span class="k">Network</span><span class="v">headscale.nixos.asia</span></li>
+            <li><span class="k">Login</span><span class="v">Google SSO · 1-week certs</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="prereq-title">
+        <span class="section-number">§ 02</span>
+        <div>
+          <h2 class="section-kicker" id="prereq-title">Get on<br>the network.</h2>
+          <p class="section-kicker-sub">Prerequisites</p>
+        </div>
+        <div class="prose">
+          <p>
+            <strong>1. Install Tailscale</strong> — grab it from the
+            <a href="https://apps.apple.com/ca/app/tailscale/id1475387142?mt=12">Mac App Store</a>.
+            Make sure the CLI works: <code>tailscale --help</code> should run in your
+            terminal. If it doesn't, create the CLI wrapper:
+          </p>
+          <div class="terminal">
+            <div class="terminal-top">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div>tailscale · cli wrapper</div>
+            </div>
+            <div class="terminal-body">
+              <pre><span class="prompt">$</span><code id="cmd-wrapper">mkdir -p /usr/local/bin &amp;&amp; printf '#!/bin/sh\nexec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"\n' &gt; /usr/local/bin/tailscale &amp;&amp; chmod +x /usr/local/bin/tailscale</code></pre>
+              <button type="button" class="copy" data-copy="#cmd-wrapper" aria-label="Copy command" title="Copy command">
+                <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+                <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+              </button>
+            </div>
+          </div>
+          <p><strong>2. Add your host machine to the VPN</strong></p>
+          <div class="terminal">
+            <div class="terminal-top">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div>tailscale · up</div>
+            </div>
+            <div class="terminal-body">
+              <pre><span class="prompt">$</span><code id="cmd-up">sudo tailscale up --login-server=https://headscale.nixos.asia --hostname $(hostname -s)</code></pre>
+              <button type="button" class="copy" data-copy="#cmd-up" aria-label="Copy command" title="Copy command">
+                <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+                <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" id="access" aria-labelledby="access-title">
+        <span class="section-number">§ 03</span>
+        <div>
+          <h2 class="section-kicker" id="access-title">Create<br>&amp; access.</h2>
+          <p class="section-kicker-sub">Workflow</p>
+        </div>
+        <div class="steps">
+          <article class="step">
+            <div class="step-n">I.</div>
+            <div>
+              <h3 class="step-title">Create the box</h3>
+            </div>
+            <div class="step-desc">
+              <p>Run the command below. On first run you'll authenticate via Google — the same SSO flow as onboarding.</p>
+              <div class="terminal">
+                <div class="terminal-body">
+                  <pre><span class="prompt">$</span><code id="cmd-create">nix run github:juspay/xyne-boxes create &lt;name&gt;</code></pre>
+                  <button type="button" class="copy" data-copy="#cmd-create" aria-label="Copy command" title="Copy command">
+                    <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+                    <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="step">
+            <div class="step-n">II.</div>
+            <div>
+              <h3 class="step-title">Set up ssh-agent</h3>
+              <span class="step-tag">Recommended</span>
+            </div>
+            <div class="step-desc">
+              <p>Forward your key with <code>ssh-agent</code> so you never copy a private key onto the box.</p>
+              <div class="terminal">
+                <div class="terminal-body">
+                  <pre><span class="prompt">$</span><code id="cmd-agent">eval `ssh-agent`
+ssh-add &lt;path-to-your-private-key&gt;</code></pre>
+                  <button type="button" class="copy" data-copy="#cmd-agent" aria-label="Copy command" title="Copy command">
+                    <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+                    <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="step">
+            <div class="step-n">III.</div>
+            <div>
+              <h3 class="step-title">Enable <code>ssh &lt;name&gt;</code></h3>
+            </div>
+            <div class="step-desc">
+              <p>Wire the generated per-box config into your SSH config once. It's idempotent — safe to re-run.</p>
+              <div class="terminal">
+                <div class="terminal-body">
+                  <pre><span class="prompt">$</span><code id="cmd-include">grep -qxF 'Include ~/.pu-state/*/ssh_config' ~/.ssh/config 2&gt;/dev/null || { mkdir -p ~/.ssh &amp;&amp; printf '\nInclude ~/.pu-state/*/ssh_config\n' &gt;&gt; ~/.ssh/config; }</code></pre>
+                  <button type="button" class="copy" data-copy="#cmd-include" aria-label="Copy command" title="Copy command">
+                    <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+                    <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="step">
+            <div class="step-n">IV.</div>
+            <div>
+              <h3 class="step-title">Connect</h3>
+            </div>
+            <div class="step-desc">
+              <p>You're in:</p>
+              <div class="terminal">
+                <div class="terminal-body">
+                  <pre><span class="prompt">$</span><code id="cmd-ssh">ssh &lt;name&gt;</code></pre>
+                  <button type="button" class="copy" data-copy="#cmd-ssh" aria-label="Copy command" title="Copy command">
+                    <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+                    <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+                  </button>
+                </div>
+              </div>
+              <p>Don't care about using <code>ssh</code> directly? Skip steps II–III and connect through the client instead: <code>nix run github:juspay/xyne-boxes connect &lt;name&gt;</code>.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="block" id="renew" aria-labelledby="renew-title">
+        <span class="section-number">§ 04</span>
+        <div>
+          <h2 class="section-kicker" id="renew-title">Renew<br>your cert.</h2>
+          <p class="section-kicker-sub">Troubleshooting</p>
+        </div>
+        <div class="prose">
+          <p>SSH certificates are valid for <strong>one week</strong>. When yours expires, a connection attempt fails like this:</p>
+          <code class="err">pu@pu: Permission denied (publickey,keyboard-interactive).
+Connection closed by UNKNOWN port 65535</code>
+          <p>Renewing takes one command and a browser sign-in:</p>
+          <div class="faq-list">
+            <details open>
+              <summary>Step 1 · Run the connect command</summary>
+              <div class="answer">
+                <p>Either <code>connect</code> or <code>list</code> triggers a fresh certificate:</p>
+                <p><code>nix run github:juspay/xyne-boxes connect</code></p>
+              </div>
+            </details>
+            <details>
+              <summary>Step 2 · Authenticate via Google</summary>
+              <div class="answer">
+                <p>The command prints a URL and a code:</p>
+                <ol>
+                  <li>Visit <a href="https://www.google.com/device">google.com/device</a> and enter the code shown in your terminal (<code>XXX-XXX-XXXX</code>).</li>
+                  <li>Sign in with your Juspay Google account — the same flow as onboarding.</li>
+                </ol>
+              </div>
+            </details>
+            <details>
+              <summary>Step 3 · SSH in as usual</summary>
+              <div class="answer">
+                <p>Once signed in, your cert is renewed and <code>ssh &lt;name&gt;</code> works again.</p>
+                <p class="callout">⚠ Hit a GitHub <code>403</code> rate-limit error? Disconnect from the VPN and retry — that usually fixes it. For a higher limit, set up a GitHub PAT.</p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <span>Juspay · xyne-boxes</span>
+        <a href="https://github.com/juspay/xyne-boxes">Source on GitHub →</a>
+      </footer>
+    </main>
+
+    <script>
+      for (const button of document.querySelectorAll("[data-copy]")) {
+        button.addEventListener("click", async () => {
+          const target = document.querySelector(button.dataset.copy);
+          if (!target) return;
+          await navigator.clipboard.writeText(target.textContent.trim());
+          const originalLabel = button.getAttribute("aria-label");
+          const originalTitle = button.getAttribute("title");
+          button.classList.add("copied");
+          button.setAttribute("aria-label", "Copied");
+          button.setAttribute("title", "Copied");
+          setTimeout(() => {
+            button.classList.remove("copied");
+            button.setAttribute("aria-label", originalLabel);
+            button.setAttribute("title", originalTitle);
+          }, 1200);
+        });
+      }
+    </script>
+  </body>
+</html>

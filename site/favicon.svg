@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="xyne-boxes">
+  <rect width="64" height="64" rx="12" fill="#f1ebdd"/>
+  <text x="15" y="46" font-family="'Fraunces', 'Times New Roman', Georgia, serif" font-style="italic" font-weight="500" font-size="42" letter-spacing="-2" fill="#141210">x</text>
+  <rect x="38" y="30" width="14" height="14" rx="2" fill="none" stroke="#c14a1b" stroke-width="3"/>
+</svg>
