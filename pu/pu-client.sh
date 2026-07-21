@@ -35,6 +35,8 @@ client_auth_init() {
   if [ "${PU_USE_SSH_CA:-}" != "true" ]; then
     _pu_ssh_opts=("${_pu_mac_opts[@]}" -o StrictHostKeyChecking=no)
     _pu_instance_ssh_opts=("${_pu_mac_opts[@]}")
+    write_proxy_script
+    migrate_old_ssh_configs
     return
   fi
 
@@ -58,53 +60,137 @@ client_auth_init() {
   _pu_instance_ssh_opts=("${_pu_mac_opts[@]}" -i "$PU_STATE_DIR/key" -o "CertificateFile=$PU_STATE_DIR/key-cert.pub" -o IdentitiesOnly=yes)
   _pu_ssh_opts=("${_pu_mac_opts[@]}" -i "$PU_STATE_DIR/key" -o "CertificateFile=$PU_STATE_DIR/key-cert.pub" -o IdentitiesOnly=yes \
     -o "UserKnownHostsFile=$PU_STATE_DIR/known_hosts" -o StrictHostKeyChecking=accept-new)
+
+  write_proxy_script
+  migrate_old_ssh_configs
+}
+
+# write_proxy_script — emit $PU_STATE_DIR/bin/pu-proxy from an embedded
+# POSIX-sh template. Refreshed on every client_auth_init so upgrading the
+# client automatically upgrades the ProxyCommand behaviour for every
+# existing per-container ssh_config.
+#
+# Why indirection: `~/.pu-state/<name>/ssh_config` files persist across
+# pu upgrades. If they baked the ProxyCommand inline, we'd have to
+# rewrite every one to change behaviour. Instead they point at a stable
+# path here; we own the script content.
+write_proxy_script() {
+  local dir="$PU_STATE_DIR/bin"
+  local script="$dir/pu-proxy"
+  mkdir -p "$dir"
+  cat > "$script" <<'PROXY_EOF'
+#!/bin/sh
+# pu-proxy: cert pre-flight + SSH delegation. Emitted by pu-client on
+# every client_auth_init. Source lives in project-unknown's pu-client.sh
+# under write_proxy_script — DO NOT hand-edit this file.
+#
+# ProxyCommand target: `<pu-proxy> <container-name>`.
+# Everything user-facing goes to stderr with a `[state=<code>]` suffix so
+# support tickets carry a stable machine-readable identifier.
+
+name="$1"
+: "${PU_HOST:=pu}"
+: "${PU_STATE_DIR:=$HOME/.pu-state}"
+: "${PU_USE_SSH_CA:=true}"
+
+msg() {
+  code="$1"; shift
+  first="$1"; shift
+  printf 'pu: %s [state=%s]\n' "$first" "$code" >&2
+  for line in "$@"; do
+    printf '    %s\n' "$line" >&2
+  done
+}
+
+# --- pre-flight: cert presence + expiry (only when SSH CA is in use) ---
+if [ "$PU_USE_SSH_CA" = "true" ]; then
+  CERT="$PU_STATE_DIR/key-cert.pub"
+  if [ ! -f "$CERT" ]; then
+    msg no-cert \
+      "first-run on this machine — no SSH cert on disk." \
+      "Run 'xyne-boxes list' once to create one (opens a browser sign-in)."
+    exit 1
+  fi
+  # Cross-platform expiry check via ssh-keygen (OpenSSH built-in on macOS + Linux).
+  valid_to=$(ssh-keygen -L -f "$CERT" 2>/dev/null | awk '/Valid: from/ {print $NF}')
+  if [ -n "$valid_to" ] && [ "$valid_to" != "forever" ]; then
+    now=$(date -u +%Y-%m-%dT%H:%M:%S)
+    # ISO 8601 → lex compare works on POSIX test.
+    if [ "$now" \> "$valid_to" ]; then
+      msg cert-expired \
+        "your SSH certificate expired at $valid_to." \
+        "Run 'xyne-boxes list' — one browser sign-in refreshes the cert." \
+        "VS Code / editors reconnect on their own after that."
+      exit 1
+    fi
+  fi
+fi
+
+# --- delegate: ssh -T pu@$PU_HOST "connect $name" ---
+_MACS="hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com"
+if [ "$PU_USE_SSH_CA" = "true" ]; then
+  ssh -T \
+    -o "MACs=$_MACS" \
+    -i "$PU_STATE_DIR/key" \
+    -o "CertificateFile=$PU_STATE_DIR/key-cert.pub" \
+    -o IdentitiesOnly=yes \
+    -o "UserKnownHostsFile=$PU_STATE_DIR/known_hosts" \
+    -o StrictHostKeyChecking=accept-new \
+    "pu@${PU_HOST}" "connect $name"
+else
+  ssh -T \
+    -o "MACs=$_MACS" \
+    -o StrictHostKeyChecking=no \
+    "pu@${PU_HOST}" "connect $name"
+fi
+rc=$?
+
+if [ "$rc" -ne 0 ]; then
+  msg connect-failed \
+    "cannot reach pu-manager (ssh exit $rc)." \
+    "Run 'xyne-boxes doctor' for a diagnosis (checks DNS / VPN / cert / cluster)."
+fi
+exit "$rc"
+PROXY_EOF
+  chmod 0755 "$script"
+}
+
+# migrate_old_ssh_configs — rewrite any per-container ssh_config whose
+# ProxyCommand still bakes the old inline `ssh -T … pu@… connect NAME`
+# form. Idempotent, safe to run every client_auth_init. Silent on
+# already-migrated configs.
+migrate_old_ssh_configs() {
+  local cfg name
+  [ -d "$PU_STATE_DIR" ] || return 0
+  local proxy="$PU_STATE_DIR/bin/pu-proxy"
+  for cfg in "$PU_STATE_DIR"/*/ssh_config; do
+    [ -f "$cfg" ] || continue
+    # Skip if already migrated (uses pu-proxy indirection).
+    if grep -q "ProxyCommand.*pu-proxy" "$cfg" 2>/dev/null; then
+      continue
+    fi
+    # Skip if not old-style (no ProxyCommand line at all).
+    if ! grep -q '^  ProxyCommand ssh' "$cfg" 2>/dev/null; then
+      continue
+    fi
+    name=$(basename "$(dirname "$cfg")")
+    awk -v n="$name" -v p="$proxy" '
+      /^  ProxyCommand ssh / { print "  ProxyCommand " p " " n; next }
+      { print }
+    ' "$cfg" > "$cfg.new" && mv "$cfg.new" "$cfg"
+  done
 }
 
 pu_ssh() {
   ssh -nT "${_pu_ssh_opts[@]}" "pu@${PU_HOST}" "$@"
 }
 
-write_ssh_proxy() {
-  local path="$PU_STATE_DIR/ssh-proxy" tmp
-  tmp=$(mktemp "$PU_STATE_DIR/.ssh-proxy.XXXXXX")
-
-  cat > "$tmp" <<'EOF'
-#!/usr/bin/env bash
-
-name="$1"
-shift
-
-"$@" 2> >(
-  reported_auth_failure=false
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-      *"Permission denied"*)
-        if [ "$reported_auth_failure" = false ]; then
-          reported_auth_failure=true
-          cat >&2 <<MESSAGE
-xyne-boxes: SSH authentication failed. Your certificate may have expired.
-
-Renew it by running:
-  nix run https://github.com/juspay/xyne-boxes/archive/main.zip connect $name
-MESSAGE
-        fi
-        ;;
-      *) printf '%s\n' "$line" >&2 ;;
-    esac
-  done
-)
-EOF
-  chmod 700 "$tmp"
-  mv -f "$tmp" "$path"
-  printf '%s\n' "$path"
-}
-
+# Retained for callers (pu connect) that need the ProxyCommand as a
+# string; now delegates to the pu-proxy script, no inline ssh.
 pu_proxy_command() {
-  local name="$1" proxy_cmd proxy
-  proxy=$(write_ssh_proxy)
-  local proxy_args=("$proxy" "$name" ssh -o BatchMode=yes -T "${_pu_ssh_opts[@]}" "pu@${PU_HOST}" "connect $name")
-  printf -v proxy_cmd '%q ' "${proxy_args[@]}"
-  printf '%s\n' "${proxy_cmd% }"
+  local name="$1" proxy_cmd
+  proxy_cmd=$(printf '%q %q' "$PU_STATE_DIR/bin/pu-proxy" "$name")
+  printf '%s\n' "$proxy_cmd"
 }
 
 write_ssh_config() {
@@ -112,8 +198,7 @@ write_ssh_config() {
   local dir="$PU_STATE_DIR/$name"
   mkdir -p "$dir"
 
-  local proxy_cmd
-  proxy_cmd=$(pu_proxy_command "$name")
+  client_auth_init
 
   {
     echo "Host $name"
@@ -123,7 +208,7 @@ write_ssh_config() {
       echo "  CertificateFile $PU_STATE_DIR/key-cert.pub"
       echo "  IdentitiesOnly yes"
     }
-    echo "  ProxyCommand $proxy_cmd"
+    echo "  ProxyCommand $PU_STATE_DIR/bin/pu-proxy $name"
     echo "  ForwardAgent yes"
     echo "  StrictHostKeyChecking no"
     echo "  UserKnownHostsFile /dev/null"
