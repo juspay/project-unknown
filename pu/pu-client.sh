@@ -4,23 +4,6 @@ set -euo pipefail
 PU_STATE_DIR="${PU_STATE_DIR:-$HOME/.pu-state}"
 mkdir -p "$PU_STATE_DIR"
 
-# Per-user config sourced BEFORE we read env defaults. Lets a user pin
-# PU_HOST / PU_SOCKS_PROXY / etc. once for all shells instead of exporting
-# them per-session or editing each ~/.pu-state/<name>/ssh_config by hand.
-#
-# Example ~/.pu-state/env for a staging setup that reaches pu-manager
-# through a SOCKS tunnel on the local box:
-#   PU_HOST=10.10.68.56
-#   PU_SOCKS_PROXY=127.0.0.1:1080
-#
-# The same file is sourced by ~/.pu-state/bin/pu-proxy so `ssh <container>`,
-# `scp`, VS Code Remote-SSH etc. all pick up the same config without any
-# manual edits to per-container ssh_configs.
-if [ -f "$PU_STATE_DIR/env" ]; then
-  # shellcheck disable=SC1091 # sourced at runtime
-  . "$PU_STATE_DIR/env"
-fi
-
 PU_HOST="${PU_HOST:-pu}"
 PU_ADMIN="${PU_ADMIN:-toor}"
 PU_USE_SSH_CA="${PU_USE_SSH_CA:-true}"
@@ -108,13 +91,12 @@ write_proxy_script() {
 name="$1"
 : "${PU_STATE_DIR:=$HOME/.pu-state}"
 
-# Optional per-user config, sourced BEFORE defaults. Set PU_HOST /
-# PU_SOCKS_PROXY / PU_USE_SSH_CA here once and every ssh/scp/VS-Code
-# session picks them up — no per-container ssh_config edits.
-if [ -f "$PU_STATE_DIR/env" ]; then
-  . "$PU_STATE_DIR/env"
-fi
-
+# PU_HOST / PU_USE_SSH_CA / PU_SOCKS_PROXY are expected to come from the
+# calling shell's env — baked into the ssh_config's ProxyCommand as an
+# `env PU_HOST=… PU_USE_SSH_CA=… [PU_SOCKS_PROXY=…] …` prefix at
+# `pu create` time. Callers can also override via an `export` in shell rc.
+# No separate config file — the env prefix in each container's ssh_config
+# IS the config.
 : "${PU_HOST:=pu}"
 : "${PU_USE_SSH_CA:=true}"
 
@@ -243,7 +225,25 @@ write_ssh_config() {
   local dir="$PU_STATE_DIR/$name"
   mkdir -p "$dir"
 
-  client_auth_init
+  # No internal client_auth_init here — every caller (pu_launch,
+  # pu_connect) already invokes it earlier. Kept explicit to sidestep
+  # the recursion pu_launch → write_ssh_config → client_auth_init.
+
+  # Bake the CURRENT shell's PU_HOST + PU_USE_SSH_CA (+ PU_SOCKS_PROXY
+  # if set) into the ProxyCommand as an `env` prefix. Restores the
+  # pre-pu-proxy behaviour where the ssh_config remembered which
+  # pu-manager the container was created against, so `ssh <container>`
+  # from ANY future shell reaches the right server with no per-shell
+  # env dance.
+  #
+  # Precedence: calling shell's exported env wins (because `env FOO=…`
+  # can be overridden by explicit shell exports), then this env prefix,
+  # then pu-proxy's built-in defaults.
+  local env_prefix
+  env_prefix="env PU_HOST=$(printf '%q' "$PU_HOST") PU_USE_SSH_CA=$(printf '%q' "${PU_USE_SSH_CA:-true}")"
+  if [ -n "${PU_SOCKS_PROXY:-}" ]; then
+    env_prefix="$env_prefix PU_SOCKS_PROXY=$(printf '%q' "$PU_SOCKS_PROXY")"
+  fi
 
   {
     echo "Host $name"
@@ -253,7 +253,7 @@ write_ssh_config() {
       echo "  CertificateFile $PU_STATE_DIR/key-cert.pub"
       echo "  IdentitiesOnly yes"
     }
-    echo "  ProxyCommand $PU_STATE_DIR/bin/pu-proxy $name"
+    echo "  ProxyCommand $env_prefix $PU_STATE_DIR/bin/pu-proxy $name"
     echo "  ForwardAgent yes"
     echo "  StrictHostKeyChecking no"
     echo "  UserKnownHostsFile /dev/null"
