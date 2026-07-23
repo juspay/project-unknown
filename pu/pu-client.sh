@@ -12,6 +12,31 @@ STEP_CA_URL="${STEP_CA_URL:-https://${PU_HOST}:8443}"
 CLI_NAME="${0##*/}"
 export STEP_FINGERPRINT STEP_CA_URL
 
+# pu_err — same shape as pu-manager's `pu_err` and pu-proxy's `msg`:
+# `pu: <first> [state=<code>]` on stderr, secondary lines indented.
+# Kept in the outer script (not the pu-proxy heredoc) so `pu_ssh` and
+# `pu_connect` can surface a typed message when their outer ssh dies
+# with rc=255 — the CLI otherwise leaks raw `ssh: connect to host …`
+# lines with no `[state=…]`, which support tickets can't grep by.
+pu_err() {
+  local code="$1"; shift
+  local first="$1"; shift
+  printf 'pu: %s [state=%s]\n' "$first" "$code" >&2
+  local line
+  for line in "$@"; do
+    printf '    %s\n' "$line" >&2
+  done
+}
+
+# Emit the same connect-failed message pu-proxy uses. Called from
+# pu_ssh and pu_connect on rc=255 (SSH transport failure).
+_pu_emit_connect_failed() {
+  pu_err connect-failed \
+    "cannot reach pu-manager (ssh exit 255)." \
+    "Check DNS / VPN reachability to \$PU_HOST, and that your SSH cert is fresh." \
+    "If it persists, check with an admin or post in #xyne-boxes-feedback."
+}
+
 require_step_cli() {
   if [ "${PU_USE_SSH_CA:-}" = "true" ] && ! command -v step >/dev/null 2>&1; then
     echo "step-cli is not installed." >&2
@@ -100,6 +125,10 @@ name="$1"
 : "${PU_HOST:=pu}"
 : "${PU_USE_SSH_CA:=true}"
 
+# Client-invocation prefix used in remediation hints. Single-sourced so
+# the URL/branch/command shape can move without editing every message.
+readonly XYNE_BOXES_CLI="nix run https://github.com/juspay/xyne-boxes/archive/main.zip --"
+
 msg() {
   code="$1"; shift
   first="$1"; shift
@@ -115,7 +144,7 @@ if [ "$PU_USE_SSH_CA" = "true" ]; then
   if [ ! -f "$CERT" ]; then
     msg no-cert \
       "first-run on this machine — no SSH cert on disk." \
-      "Run 'xyne-boxes list' once to create one (opens a browser sign-in)."
+      "Run '$XYNE_BOXES_CLI list' once to create one (opens a browser sign-in)."
     exit 1
   fi
   # Cross-platform expiry check via ssh-keygen (OpenSSH built-in on macOS + Linux).
@@ -126,7 +155,7 @@ if [ "$PU_USE_SSH_CA" = "true" ]; then
     if [ "$now" \> "$valid_to" ]; then
       msg cert-expired \
         "your SSH certificate expired at $valid_to." \
-        "Run 'xyne-boxes list' — one browser sign-in refreshes the cert." \
+        "Run '$XYNE_BOXES_CLI list' — one browser sign-in refreshes the cert." \
         "VS Code / editors reconnect on their own after that."
       exit 1
     fi
@@ -172,10 +201,15 @@ else
 fi
 rc=$?
 
-if [ "$rc" -ne 0 ]; then
+# rc == 255 is SSH's own signal for a transport/auth failure (network,
+# DNS, unreachable host, auth denied). Anything else means the server
+# ran and exited with that code — its own `pu: … [state=…]` message is
+# already on the wire. Don't double up.
+if [ "$rc" -eq 255 ]; then
   msg connect-failed \
-    "cannot reach pu-manager (ssh exit $rc)." \
-    "Run 'xyne-boxes doctor' for a diagnosis (checks DNS / VPN / cert / cluster)."
+    "cannot reach pu-manager (ssh exit 255)." \
+    "Check DNS / VPN reachability to \$PU_HOST, and that your SSH cert is fresh." \
+    "If it persists, check with an admin or post in #xyne-boxes-feedback."
 fi
 exit "$rc"
 PROXY_EOF
@@ -209,7 +243,10 @@ migrate_old_ssh_configs() {
 }
 
 pu_ssh() {
-  ssh -nT "${_pu_ssh_opts[@]}" "pu@${PU_HOST}" "$@"
+  local rc=0
+  ssh -nT "${_pu_ssh_opts[@]}" "pu@${PU_HOST}" "$@" || rc=$?
+  [ "$rc" -eq 255 ] && _pu_emit_connect_failed
+  return "$rc"
 }
 
 # Retained for callers (pu connect) that need the ProxyCommand as a
@@ -326,7 +363,13 @@ pu_connect() {
 
   # bash 3.2 (default on macOS) errors on empty "${arr[@]}" under `set -u`.
   # Guard with ${arr[@]+"${arr[@]}"} so each array expands to nothing when empty.
-  exec ssh \
+  # Not `exec` — we need to inspect the rc so the CLI can emit a typed
+  # connect-failed message when the outer ssh fails at the transport
+  # layer (rc=255). pu-proxy already handles the inner-ssh case; this
+  # covers only the outer ssh's own dial to the container hostname
+  # (e.g. sshd dead on the jump/target).
+  local rc=0
+  ssh \
     ${_pu_instance_ssh_opts[@]+"${_pu_instance_ssh_opts[@]}"} \
     ${ssh_args[@]+"${ssh_args[@]}"} \
     -o "ProxyCommand=$proxy_cmd" \
@@ -335,7 +378,10 @@ pu_connect() {
     -o UserKnownHostsFile=/dev/null \
     -l "$PU_ADMIN" \
     -- "$name" \
-    ${remote_cmd[@]+"${remote_cmd[@]}"}
+    ${remote_cmd[@]+"${remote_cmd[@]}"} \
+    || rc=$?
+  [ "$rc" -eq 255 ] && _pu_emit_connect_failed
+  exit "$rc"
 }
 
 pu_destroy() {
